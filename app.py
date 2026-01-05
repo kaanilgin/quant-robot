@@ -14,10 +14,10 @@ st.markdown("Mean Reversion (Ortalamaya Dönüş) stratejisi ile piyasadaki **uc
 # --- SIDEBAR (AYARLAR) ---
 st.sidebar.header("⚙️ Robot Ayarları")
 
-# 1. Kullanıcı Girişleri
-# .strip() boşlukları temizler
-symbol_input = st.sidebar.text_input("Varlık Sembolü (Yahoo Kodu)", value="THYAO.IS")
-symbol = symbol_input.strip()
+# 1. Kullanıcı Girişleri (Varsayılan boş)
+symbol_input = st.sidebar.text_input("Varlık Sembolü (Yahoo Kodu)", value="")
+
+# Diğer Ayarlar
 window = st.sidebar.slider("Ortalama Periyodu (Gün)", min_value=10, max_value=200, value=50, step=5)
 z_threshold = st.sidebar.slider("Hassasiyet (Sigma)", min_value=1.0, max_value=3.0, value=2.0, step=0.1)
 
@@ -29,6 +29,22 @@ st.sidebar.info(f"""
 * Emtia: `GC=F` (Altın)
 """)
 
+# --- AÇILIŞ EKRANI (KONTROL) ---
+# Eğer kutu boşsa, hoşgeldin mesajı göster ve dur.
+if not symbol_input:
+    st.info("👋 **Quant Robotuna Hoşgeldin!**")
+    st.markdown("""
+    Analize başlamak için sol menüden bir sembol girin (Örn: THYAO.IS).
+    """)
+    st.stop() # Kod burada durur, aşağıya geçmez.
+
+# TÜRKÇE KARAKTER VE FORMAT DÜZELTME
+# Kullanıcı ne yazarsa yazsın (küçük, büyük, noktalı) düzeltiyoruz
+symbol = symbol_input.replace('İ', 'I').replace('ı', 'i').upper().strip()
+
+# BIST ÖZEL YAMASI (.IS -> .is dönüşümü)
+if symbol.endswith(".IS"):
+    symbol = symbol.replace(".IS", ".is")
 # --- FONKSİYONLAR ---
 @st.cache_data
 def veri_getir(sembol, periyot):

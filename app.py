@@ -32,17 +32,29 @@ st.sidebar.info(f"""
 # --- FONKSİYONLAR ---
 @st.cache_data
 def veri_getir(sembol, periyot):
-    # Veri çekme işlemi (Cache'lenir, her tıkta tekrar indirmez)
-    try:
-        df = yf.download(sembol, period="2y", progress=False)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        
-        if df.empty:
-            return None
-        return df
-    except Exception as e:
-        return None
+    # Olası tüm kombinasyonları dene (Hata payını sıfıra indirir)
+    sembol_listesi = [
+        sembol,                                   # 1. Kullanıcının yazdığı gibi
+        sembol.upper(),                           # 2. Tamamen büyük (THYAO.IS)
+        sembol.lower(),                           # 3. Tamamen küçük (thyao.is)
+        sembol.upper().replace('İ', 'I'),         # 4. Türkçe İ karakterini düzelt
+        sembol.upper().replace('.IS', '.is')      # 5. BIST özel çözümü (Senin bulduğun)
+    ]
+
+    for s in sembol_listesi:
+        try:
+            # Veriyi çekmeye çalış
+            df = yf.download(s, period="2y", progress=False)
+            
+            # Veri geldiyse formatla ve geri gönder
+            if not df.empty:
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                return df
+        except Exception:
+            continue # Hata alırsan sonraki ihtimali dene
+            
+    return None # Hiçbiri çalışmazsa boş dön
 
 def hesapla(df, window):
     close_price = df['Close'].dropna()

@@ -15,7 +15,9 @@ st.markdown("Mean Reversion (Ortalamaya Dönüş) stratejisi ile piyasadaki **uc
 st.sidebar.header("⚙️ Robot Ayarları")
 
 # 1. Kullanıcı Girişleri
-symbol = st.sidebar.text_input("Varlık Sembolü (Yahoo Kodu)", value="THYAO.IS")
+# .strip() boşlukları temizler
+symbol_input = st.sidebar.text_input("Varlık Sembolü (Yahoo Kodu)", value="THYAO.IS")
+symbol = symbol_input.strip()
 window = st.sidebar.slider("Ortalama Periyodu (Gün)", min_value=10, max_value=200, value=50, step=5)
 z_threshold = st.sidebar.slider("Hassasiyet (Sigma)", min_value=1.0, max_value=3.0, value=2.0, step=0.1)
 

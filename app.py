@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v14.0 - Smart", layout="wide")
+st.set_page_config(page_title="Quant Robot v14.1 - RSI 80/30", layout="wide")
 plt.style.use('dark_background')
 
 # --- HAFIZA ---
@@ -34,7 +34,7 @@ def indikatorleri_hesapla(df, window, z_thresh):
     df['Upper'] = df['SMA'] + (z_thresh * df['STD'])
     df['Lower'] = df['SMA'] - (z_thresh * df['STD'])
     
-    # 2. RSI
+    # 2. RSI (14 Günlük)
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -55,12 +55,10 @@ def satir_boya(row):
     durum = row['Durum']
     
     if "SÜPER FIRSAT" in durum:
-        # Altın Sarısı / Parlak Yeşil karışımı
         stiller = ['color: #FFD700; font-weight: bold; background-color: #1a1a00'] * len(row)
     elif "UCUZ" in durum:
         stiller = ['color: #00c853; font-weight: bold'] * len(row)
     elif "SÜPER RİSK" in durum:
-        # Parlak Kırmızı
         stiller = ['color: #ff0000; font-weight: bold; background-color: #1a0000'] * len(row)
     elif "PAHALI" in durum:
         stiller = ['color: #ff4b4b; font-weight: bold'] * len(row)
@@ -68,13 +66,13 @@ def satir_boya(row):
     return stiller
 
 # --- ANA BAŞLIK ---
-st.title("💎 Quant Terminal Pro (Akıllı Sinyal)")
+st.title("💎 Quant Terminal Pro (RSI Özel Ayar)")
 
 # --- SEKMELER ---
 tab1, tab2 = st.tabs(["📊 Detaylı Analiz", "📡 Mega Radar"])
 
 # ==========================
-# SEKME 1: DETAYLI ANALİZ (Grafik Çizgileri Ekli)
+# SEKME 1: DETAYLI ANALİZ
 # ==========================
 with tab1:
     st.markdown("### 🔍 Çoklu İndikatör Analizi")
@@ -102,13 +100,16 @@ with tab1:
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Fiyat", f"{last_p:.2f}")
             
-            # Akıllı Metrikler
             z_durum = "Nötr"
             if last_z > z_threshold: z_durum = "Pahalı"
             elif last_z < -z_threshold: z_durum = "Ucuz"
             m2.metric("Z-Score", f"{last_z:.2f}", z_durum, delta_color="inverse" if "Pahalı" in z_durum else "normal")
             
-            m3.metric("RSI", f"{last_rsi:.1f}", "Aşırı Alım" if last_rsi>70 else "Aşırı Satım" if last_rsi<30 else "Normal")
+            # --- RSI AYARI (80/30) ---
+            rsi_text = "Normal"
+            if last_rsi > 80: rsi_text = "Aşırı Alım (80↑)"
+            elif last_rsi < 30: rsi_text = "Aşırı Satım (30↓)"
+            m3.metric("RSI", f"{last_rsi:.1f}", rsi_text)
             
             macd_val = "Pozitif" if last_macd > last_sig else "Negatif"
             m4.metric("MACD", f"{last_macd:.2f}", macd_val)
@@ -145,9 +146,11 @@ with tab1:
                 st.markdown("**RSI (Güç)**")
                 fig3, ax3 = plt.subplots(figsize=(6, 3))
                 ax3.plot(df.index, df['RSI'], color='magenta')
-                ax3.axhline(70, color='red', linestyle='--', linewidth=1)
-                ax3.axhline(30, color='green', linestyle='--', linewidth=1)
+                # --- RSI ÇİZGİLERİ GÜNCELLENDİ (80/30) ---
+                ax3.axhline(80, color='red', linestyle='--', linewidth=1, label='Aşırı Alım (80)')
+                ax3.axhline(30, color='green', linestyle='--', linewidth=1, label='Aşırı Satım (30)')
                 ax3.set_ylim(0, 100)
+                ax3.legend(loc='upper right', fontsize='small')
                 ax3.grid(True, alpha=0.2)
                 st.pyplot(fig3)
             with c_g2:
@@ -163,7 +166,7 @@ with tab1:
             st.error("Veri bulunamadı.")
 
 # ==========================
-# SEKME 2: MEGA RADAR (AKILLI SİNYAL AKTİF ✅)
+# SEKME 2: MEGA RADAR
 # ==========================
 with tab2:
     st.markdown("### 📡 BIST 100 & Global Tarayıcı")
@@ -203,20 +206,20 @@ with tab2:
                     macd = d['MACD'].iloc[-1]
                     sig = d['Signal_Line'].iloc[-1]
                     
-                    # --- AKILLI KARAR MEKANİZMASI (YENİ!) ---
                     durum = "NÖTR"
                     
+                    # --- AKILLI KARAR MEKANİZMASI (80/30 GÜNCELLENDİ) ---
                     # 1. UCUZ / PAHALI
                     if z < -z_thresh_scan:
                         durum = "🟢 UCUZ"
-                        # RSI da destekliyor mu?
-                        if rsi < 35:
+                        # RSI da destekliyor mu? (30 Altı)
+                        if rsi < 30:
                             durum = "🔥 SÜPER FIRSAT"
                             
                     elif z > z_thresh_scan:
                         durum = "🔴 PAHALI"
-                        # RSI da destekliyor mu?
-                        if rsi > 65:
+                        # RSI da destekliyor mu? (80 Üstü - Yeni Ayar)
+                        if rsi > 80:
                             durum = "💣 SÜPER RİSK"
                     
                     res.append({

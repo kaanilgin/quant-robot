@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v10 - Final", layout="wide")
+st.set_page_config(page_title="Quant Robot v11 - Focus", layout="wide")
 plt.style.use('dark_background')
 
 # --- HAFIZA ---
@@ -34,32 +34,19 @@ def teknik_hesapla(df, window, z_thresh):
     df['Lower'] = df['SMA'] - (z_thresh * df['STD'])
     return df
 
-def monte_carlo_simulasyon(df, gun_sayisi, sim_sayisi=100):
-    getiriler = df['Close'].pct_change().dropna()
-    mu, sigma = getiriler.mean(), getiriler.std()
-    son_fiyat = df['Close'].iloc[-1]
-    sim_df = pd.DataFrame()
-    for x in range(sim_sayisi):
-        fiyatlar = [son_fiyat]
-        for i in range(gun_sayisi):
-            fiyatlar.append(fiyatlar[-1] * (1 + np.random.normal(mu, sigma)))
-        sim_df[f"Senaryo {x}"] = fiyatlar
-    return sim_df
-
 # --- ANA BAŞLIK ---
 st.title("💎 Quant Terminal Pro")
 
-# --- SEKMELER ---
-tab1, tab2, tab3 = st.tabs(["📊 Teknik Analiz", "📡 Mega Radar", "🎲 Simülasyon"])
+# --- SADECE 2 SEKME KALDI ---
+tab1, tab2 = st.tabs(["📊 Teknik Analiz", "📡 Mega Radar"])
 
 # ==========================
 # SEKME 1: TEKNİK ANALİZ (KONTROLLER BURADA)
 # ==========================
 with tab1:
-    # Kontrolleri sadece bu sekmenin içine koyduk
     st.markdown("### 🔍 Varlık Analizi")
     
-    # 3'lü Kontrol Paneli (Input - Gün - Hassasiyet)
+    # 3'lü Kontrol Paneli
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
         s_in = st.text_input("Sembol:", value="THYAO.IS", placeholder="Örn: GARAN.IS")
@@ -90,7 +77,7 @@ with tab1:
             elif last_z < -z_threshold: m4.metric("Stres (Z)", f"{last_z:.2f}", "Ucuz 🟢")
             else: m4.metric("Stres (Z)", f"{last_z:.2f}", "Nötr ⚪")
 
-            # Grafik 1
+            # Grafik 1: Fiyat
             st.subheader("📈 Fiyat Trendi")
             fig1, ax1 = plt.subplots(figsize=(12, 5))
             ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
@@ -102,7 +89,7 @@ with tab1:
             ax1.grid(True, alpha=0.2)
             st.pyplot(fig1)
 
-            # Grafik 2
+            # Grafik 2: Gerginlik
             st.subheader("⚡ Gerginlik Ölçer")
             fig2, ax2 = plt.subplots(figsize=(12, 4))
             ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
@@ -123,7 +110,6 @@ with tab1:
 with tab2:
     st.markdown("### 📡 BIST 100 & Global Tarayıcı")
     
-    # Ayarları gizledik, isteyen açar bakar
     with st.expander("⚙️ Tarama Hassasiyet Ayarları (İsteğe Bağlı)"):
         col_set1, col_set2 = st.columns(2)
         window_scan = col_set1.number_input("Ortalama Gün", 10, 200, 50, 5, key="w2")
@@ -167,39 +153,8 @@ with tab2:
     if st.session_state['tarama_sonuclari'] is not None:
         df_g = st.session_state['tarama_sonuclari'].copy()
         
-        # Filtreleme (Varsayılan olarak kapalı - False)
+        # Filtreleme (Varsayılan olarak kapalı)
         if st.checkbox("Sadece Fırsatları Göster", value=False):
             df_g = df_g[df_g["Durum"] != "NÖTR"]
             
         st.dataframe(df_g.style.format({"Fiyat": "{:.2f}", "Z-Score": "{:.2f}"}), use_container_width=True)
-
-# ==========================
-# SEKME 3: SİMÜLASYON
-# ==========================
-with tab3:
-    st.subheader("🎲 Gelecek Simülasyonu")
-    c1, c2 = st.columns([1, 4])
-    with c1:
-        mc_sym = st.text_input("Sembol:", value="BTC-USD", key="mc_s")
-        mc_gun = st.number_input("Gün", 30, 365, 90)
-        btn = st.button("Başlat ▶️")
-    
-    with c2:
-        if btn and mc_sym:
-            with st.spinner("Hesaplanıyor..."):
-                d_mc = veri_getir(mc_sym)
-                if d_mc is not None:
-                    sim_df = monte_carlo_simulasyon(d_mc, mc_gun)
-                    fig_mc, ax_mc = plt.subplots(figsize=(10, 5))
-                    ax_mc.plot(sim_df, color='cyan', alpha=0.1, linewidth=0.5)
-                    ax_mc.plot(sim_df.mean(axis=1), color='yellow', linewidth=2, label='Ortalama Rota')
-                    ax_mc.legend()
-                    ax_mc.grid(True, alpha=0.2)
-                    st.pyplot(fig_mc)
-                    
-                    res = sim_df.iloc[-1]
-                    k1, k2, k3 = st.columns(3)
-                    k1.metric("Min", f"{res.min():.2f}")
-                    k2.metric("Ortalama", f"{res.mean():.2f}")
-                    k3.metric("Max", f"{res.max():.2f}")
-                else: st.error("Veri yok.")

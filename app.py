@@ -164,11 +164,22 @@ with tab2:
             except:
                 continue # Hata vereni pas geç
         
-        # Sonuç Tablosu
+        # --- SONUÇLARI GÖSTERME KISMI (GÜNCELLENDİ) ---
         if firsatlar:
             df_sonuc = pd.DataFrame(firsatlar)
+            
+            # 1. Filtreleme Seçeneği
+            sadece_firsat = st.checkbox("Sadece Fırsatları (AL/SAT) Göster", value=False)
+            
+            if sadece_firsat:
+                # İçinde "UCUZ" veya "PAHALI" geçenleri süz
+                df_sonuc = df_sonuc[df_sonuc["Durum"] != "NÖTR"]
+            
             st.success(f"Tarama Tamamlandı! {len(takip_listesi)} varlık incelendi.")
-            # Tabloyu göster
-            st.table(df_sonuc)
+            
+            # 2. İnteraktif Tablo (Sıralanabilir)
+            # use_container_width=True tablonun sayfaya yayılmasını sağlar
+            st.dataframe(df_sonuc, use_container_width=True, hide_index=True)
+            
         else:
             st.warning("Veri çekilemedi veya listede sorun var.")

@@ -105,10 +105,32 @@ with tab2:
     if 'tarama_sonuclari' not in st.session_state:
         st.session_state['tarama_sonuclari'] = None
 
+    # ---------------------------------------------------------
+    # GÜNCELLENMİŞ DEV TAKİP LİSTESİ (BIST 100 + KRİPTO + EMTİA + FX)
+    # ---------------------------------------------------------
     takip_listesi = [
-        'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'ASELS.IS', 'SISE.IS', 'BIMAS.IS', 
-        'KCHOL.IS', 'SAHOL.IS', 'TUPRS.IS', 'PETKM.IS', 'HEKTS.IS', 'SASA.IS', 'KOZAL.IS',
-        'FROTO.IS', 'TOASO.IS', 'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'GC=F', 'EURUSD=X'
+        # --- BIST 30 & 50 DEVLERİ ---
+        'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'ISCTR.IS', 'YKBNK.IS', 'VAKBN.IS', 'HALKB.IS',
+        'EREGL.IS', 'KRDMD.IS', 'ISDMR.IS', 'TUPRS.IS', 'PETKM.IS', 'ASELS.IS', 'SISE.IS',
+        'KCHOL.IS', 'SAHOL.IS', 'DOHOL.IS', 'ENKAI.IS', 'TEKFEN.IS', 'ALARK.IS', 'GSDHO.IS',
+        'BIMAS.IS', 'MGROS.IS', 'SOKM.IS', 'AEFES.IS', 'CCOLA.IS', 'ULKER.IS',
+        'FROTO.IS', 'TOASO.IS', 'TTRAK.IS', 'DOAS.IS', 'OTKAR.IS', 'KARSAN.IS', 'TMSN.IS',
+        'PGSUS.IS', 'TAVHL.IS', 'CLEBI.IS', 
+        'HEKTS.IS', 'SASA.IS', 'GUBRF.IS', 'KONTR.IS', 'SMRTG.IS', 'GESAN.IS', 'EGEEN.IS',
+        'KOZAL.IS', 'KOZAA.IS', 'IPEKE.IS',
+        'EKGYO.IS', 'ISGYO.IS', 'TRGYO.IS',
+        'ODAS.IS', 'ZOREN.IS', 'AKSEN.IS', 'AYDEM.IS', 'GWIND.IS', 'BIOEN.IS', 'ASTOR.IS',
+        
+        # --- TEKNOLOJİ & YAZILIM ---
+        'MIATK.IS', 'LOGO.IS', 'NETAS.IS', 'KFEIN.IS', 'REEDR.IS', 'SDTTR.IS',
+        
+        # --- ÇİMENTO & ENERJİ ---
+        'AKCNS.IS', 'CIMSA.IS', 'OYAKC.IS', 'NUHCM.IS', 
+
+        # --- KÜRESEL PİYASALAR ---
+        'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', # Kripto
+        'GC=F', 'SI=F', 'CL=F', 'NG=F', 'HG=F',  # Emtia (Altın, Gümüş, Petrol, Gaz, Bakır)
+        'EURUSD=X', 'GBPUSD=X', 'JPY=X', 'TRY=X' # Forex (Euro, Sterlin, Yen, Dolar/TL)
     ]
     
     # Butona basılınca tarama yap ve HAFIZAYA KAYDET

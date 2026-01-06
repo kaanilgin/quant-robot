@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v13.2 - Bantlı", layout="wide")
+st.set_page_config(page_title="Quant Robot v14.0 - Smart", layout="wide")
 plt.style.use('dark_background')
 
 # --- HAFIZA ---
@@ -27,21 +27,21 @@ def veri_getir(sembol, periyot="1y"):
     return None
 
 def indikatorleri_hesapla(df, window, z_thresh):
-    # 1. Z-SCORE (Konum)
+    # 1. Z-SCORE
     df['SMA'] = df['Close'].rolling(window=window).mean()
     df['STD'] = df['Close'].rolling(window=window).std()
     df['Z_Score'] = (df['Close'] - df['SMA']) / df['STD']
     df['Upper'] = df['SMA'] + (z_thresh * df['STD'])
     df['Lower'] = df['SMA'] - (z_thresh * df['STD'])
     
-    # 2. RSI (Momentum)
+    # 2. RSI
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
     
-    # 3. MACD (Trend)
+    # 3. MACD
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = ema12 - ema26
@@ -49,23 +49,32 @@ def indikatorleri_hesapla(df, window, z_thresh):
     
     return df
 
-# Tablo Renklendirme
+# --- AKILLI RENKLENDİRME ---
 def satir_boya(row):
     stiller = [''] * len(row)
-    if "PAHALI" in row['Durum']:
-        stiller = ['color: #ff4b4b; font-weight: bold'] * len(row)
-    elif "UCUZ" in row['Durum']:
+    durum = row['Durum']
+    
+    if "SÜPER FIRSAT" in durum:
+        # Altın Sarısı / Parlak Yeşil karışımı
+        stiller = ['color: #FFD700; font-weight: bold; background-color: #1a1a00'] * len(row)
+    elif "UCUZ" in durum:
         stiller = ['color: #00c853; font-weight: bold'] * len(row)
+    elif "SÜPER RİSK" in durum:
+        # Parlak Kırmızı
+        stiller = ['color: #ff0000; font-weight: bold; background-color: #1a0000'] * len(row)
+    elif "PAHALI" in durum:
+        stiller = ['color: #ff4b4b; font-weight: bold'] * len(row)
+        
     return stiller
 
 # --- ANA BAŞLIK ---
-st.title("💎 Quant Terminal Pro (Tam Sürüm)")
+st.title("💎 Quant Terminal Pro (Akıllı Sinyal)")
 
 # --- SEKMELER ---
 tab1, tab2 = st.tabs(["📊 Detaylı Analiz", "📡 Mega Radar"])
 
 # ==========================
-# SEKME 1: DETAYLI ANALİZ
+# SEKME 1: DETAYLI ANALİZ (Grafik Çizgileri Ekli)
 # ==========================
 with tab1:
     st.markdown("### 🔍 Çoklu İndikatör Analizi")
@@ -84,72 +93,54 @@ with tab1:
         if df is not None:
             df = indikatorleri_hesapla(df, window, z_threshold)
             
-            # Son Değerler
             last_p = df['Close'].iloc[-1]
             last_z = df['Z_Score'].iloc[-1]
             last_rsi = df['RSI'].iloc[-1]
             last_macd = df['MACD'].iloc[-1]
             last_sig = df['Signal_Line'].iloc[-1]
             
-            # --- METRİKLER ---
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Fiyat", f"{last_p:.2f}")
             
-            z_durum = "Nötr ⚪"
-            if last_z > z_threshold: z_durum = "Pahalı 🔴"
-            elif last_z < -z_threshold: z_durum = "Ucuz 🟢"
-            m2.metric("Z-Score", f"{last_z:.2f}", z_durum)
+            # Akıllı Metrikler
+            z_durum = "Nötr"
+            if last_z > z_threshold: z_durum = "Pahalı"
+            elif last_z < -z_threshold: z_durum = "Ucuz"
+            m2.metric("Z-Score", f"{last_z:.2f}", z_durum, delta_color="inverse" if "Pahalı" in z_durum else "normal")
             
-            rsi_durum = "Nötr ⚪"
-            if last_rsi > 70: rsi_durum = "Aşırı Alım 🔴"
-            elif last_rsi < 30: rsi_durum = "Aşırı Satım 🟢"
-            m3.metric("RSI", f"{last_rsi:.1f}", rsi_durum)
+            m3.metric("RSI", f"{last_rsi:.1f}", "Aşırı Alım" if last_rsi>70 else "Aşırı Satım" if last_rsi<30 else "Normal")
             
-            macd_durum = "Nötr ⚪"
-            if last_macd > last_sig: macd_durum = "Pozitif 🟢"
-            else: macd_durum = "Negatif 🔴"
-            m4.metric("MACD", f"{last_macd:.2f}", macd_durum)
+            macd_val = "Pozitif" if last_macd > last_sig else "Negatif"
+            m4.metric("MACD", f"{last_macd:.2f}", macd_val)
             
-            # --- GRAFİK 1: FİYAT (GÜNCELLENDİ! 🌟) ---
+            # --- GRAFİK 1: FİYAT ---
             st.subheader("1️⃣ Fiyat Trendi ve Bantlar")
             fig1, ax1 = plt.subplots(figsize=(12, 4))
-            
-            # Temel Çizgiler
             ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
             ax1.plot(df.index, df['SMA'], color='orange', linestyle='--', label='Ortalama')
-            
-            # --- YENİ EKLENEN ÇİZGİLER ---
-            # Üst Bant (Kırmızı Çizgi)
             ax1.plot(df.index, df['Upper'], color='red', alpha=0.7, linewidth=1.5, label='Üst Bant')
-            # Alt Bant (Yeşil Çizgi)
             ax1.plot(df.index, df['Lower'], color='green', alpha=0.7, linewidth=1.5, label='Alt Bant')
-            
-            # Aradaki Gri Dolgu (Aynen duruyor)
             ax1.fill_between(df.index, df['Upper'], df['Lower'], color='gray', alpha=0.15)
-            
             ax1.legend(loc="upper left")
             ax1.grid(True, alpha=0.2)
             st.pyplot(fig1)
 
-            # --- GRAFİK 2: GERGİNLİK ÖLÇER (Z-SCORE) ---
-            st.subheader("2️⃣ Gerginlik Ölçer (Z-Score)")
+            # --- GRAFİK 2: Z-SCORE ---
+            st.subheader("2️⃣ Gerginlik Ölçer")
             fig2, ax2 = plt.subplots(figsize=(12, 4))
             ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
             ax2.axhline(0, color='white', linestyle=':', alpha=0.5)
-            ax2.axhline(z_threshold, color='red', linestyle='--', linewidth=2, label='Pahalı')
-            ax2.axhline(-z_threshold, color='green', linestyle='--', linewidth=2, label='Ucuz')
-            
+            ax2.axhline(z_threshold, color='red', linestyle='--', linewidth=2)
+            ax2.axhline(-z_threshold, color='green', linestyle='--', linewidth=2)
             ax2.fill_between(df.index, z_threshold, df['Z_Score'], where=(df['Z_Score'] > z_threshold), color='red', alpha=0.6)
             ax2.fill_between(df.index, -z_threshold, df['Z_Score'], where=(df['Z_Score'] < -z_threshold), color='green', alpha=0.6)
-            
             ax2.legend(loc="upper left")
             ax2.grid(True, alpha=0.2)
             st.pyplot(fig2)
 
-            # --- GRAFİK 3: YARDIMCI İNDİKATÖRLER (RSI & MACD) ---
+            # --- GRAFİK 3: YARDIMCI ---
             st.subheader("3️⃣ Yardımcı Göstergeler")
             c_g1, c_g2 = st.columns(2)
-            
             with c_g1:
                 st.markdown("**RSI (Güç)**")
                 fig3, ax3 = plt.subplots(figsize=(6, 3))
@@ -159,7 +150,6 @@ with tab1:
                 ax3.set_ylim(0, 100)
                 ax3.grid(True, alpha=0.2)
                 st.pyplot(fig3)
-                
             with c_g2:
                 st.markdown("**MACD (Trend)**")
                 fig4, ax4 = plt.subplots(figsize=(6, 3))
@@ -173,7 +163,7 @@ with tab1:
             st.error("Veri bulunamadı.")
 
 # ==========================
-# SEKME 2: MEGA RADAR
+# SEKME 2: MEGA RADAR (AKILLI SİNYAL AKTİF ✅)
 # ==========================
 with tab2:
     st.markdown("### 📡 BIST 100 & Global Tarayıcı")
@@ -213,23 +203,28 @@ with tab2:
                     macd = d['MACD'].iloc[-1]
                     sig = d['Signal_Line'].iloc[-1]
                     
+                    # --- AKILLI KARAR MEKANİZMASI (YENİ!) ---
                     durum = "NÖTR"
-                    if z < -z_thresh_scan: durum = "🟢 UCUZ"
-                    elif z > z_thresh_scan: durum = "🔴 PAHALI"
                     
-                    rsi_not = "Normal"
-                    if rsi < 30: rsi_not = "Dipte (30↓)"
-                    elif rsi > 70: rsi_not = "Tepede (70↑)"
-                    
-                    macd_not = "Negatif"
-                    if macd > sig: macd_not = "Pozitif"
+                    # 1. UCUZ / PAHALI
+                    if z < -z_thresh_scan:
+                        durum = "🟢 UCUZ"
+                        # RSI da destekliyor mu?
+                        if rsi < 35:
+                            durum = "🔥 SÜPER FIRSAT"
+                            
+                    elif z > z_thresh_scan:
+                        durum = "🔴 PAHALI"
+                        # RSI da destekliyor mu?
+                        if rsi > 65:
+                            durum = "💣 SÜPER RİSK"
                     
                     res.append({
                         "Sembol": s.replace(".IS",""), 
                         "Fiyat": d['Close'].iloc[-1], 
                         "Z-Score": z, 
                         "RSI": rsi,
-                        "MACD": macd_not,
+                        "MACD": "Pozitif" if macd > sig else "Negatif",
                         "Durum": durum
                     })
             except: continue
@@ -244,14 +239,16 @@ with tab2:
         if filtre:
             df_g = df_g[df_g["Durum"] != "NÖTR"]
         
-        toplam = len(df_g)
-        ucuzlar = len(df_g[df_g['Durum'] == "🟢 UCUZ"])
-        pahalilar = len(df_g[df_g['Durum'] == "🔴 PAHALI"])
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Toplam Varlık", f"{len(df_g)}")
         
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Toplam Varlık", f"{toplam}")
-        k2.metric("Ucuz Fırsatlar", f"{ucuzlar}", delta_color="normal")
-        k3.metric("Pahalı Riskler", f"{pahalilar}", delta_color="inverse")
+        super_firsat = len(df_g[df_g['Durum'] == "🔥 SÜPER FIRSAT"])
+        normal_firsat = len(df_g[df_g['Durum'] == "🟢 UCUZ"])
+        riskli = len(df_g[df_g['Durum'].str.contains("PAHALI|RİSK")])
+        
+        k2.metric("🔥 Süper Fırsatlar", f"{super_firsat}")
+        k3.metric("🟢 Normal Ucuzlar", f"{normal_firsat}")
+        k4.metric("🔴 Pahalı/Riskli", f"{riskli}")
         
         st.markdown("---")
             

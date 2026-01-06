@@ -2,11 +2,12 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v8 - Premium", layout="wide")
+st.set_page_config(page_title="Quant Robot v8.1 - Klasik", layout="wide")
+# Grafikleri koyu tema yap (Terminal havası için)
+plt.style.use('dark_background')
 
 # --- HAFIZA ---
 if 'tarama_sonuclari' not in st.session_state:
@@ -30,6 +31,7 @@ def teknik_hesapla(df, window, z_thresh):
     df['SMA'] = df['Close'].rolling(window=window).mean()
     df['STD'] = df['Close'].rolling(window=window).std()
     df['Z_Score'] = (df['Close'] - df['SMA']) / df['STD']
+    # Kırmızı/Yeşil Bantlar için hesaplama
     df['Upper'] = df['SMA'] + (z_thresh * df['STD'])
     df['Lower'] = df['SMA'] - (z_thresh * df['STD'])
     return df
@@ -46,14 +48,12 @@ def monte_carlo_simulasyon(df, gun_sayisi, sim_sayisi=100):
         sim_df[f"Senaryo {x}"] = fiyatlar
     return sim_df
 
-# --- ÜST PANEL (LOGO & KONTROLLER) ---
-st.title("💎 Quant Terminal Pro")
+# --- ÜST PANEL (KONTROLLER) ---
+st.title("💎 Quant Terminal Pro (Klasik)")
 
-# Kontrolleri tek bir şık kutuya (Container) alıyoruz
 with st.container():
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
-        # Arama kutusu en solda
         s_in = st.text_input("🔍 Sembol Arayın:", value="THYAO.IS", placeholder="Örn: GARAN.IS, BTC-USD")
     with c2:
         window = st.number_input("Ortalama (Gün)", min_value=10, max_value=200, value=50, step=5)
@@ -66,7 +66,7 @@ st.divider()
 tab1, tab2, tab3 = st.tabs(["📊 Teknik Analiz", "📡 Piyasa Radarı", "🎲 Simülasyon"])
 
 # ==========================
-# SEKME 1: PREMIUM ANALİZ (PLOTLY)
+# SEKME 1: KLASİK ANALİZ (MATPLOTLIB GERİ GELDİ!)
 # ==========================
 with tab1:
     if s_in:
@@ -85,52 +85,53 @@ with tab1:
             m2.metric("Ortalama", f"{last_sma:.2f}")
             m3.metric("Fark", f"%{fark:.1f}", delta_color="off")
             
-            durum_renk = "normal"
-            if last_z > z_threshold: durum_renk = "inverse"
-            elif last_z < -z_threshold: durum_renk = "normal"
-            m4.metric("Stres Seviyesi (Z)", f"{last_z:.2f}", delta_color=durum_renk)
+            if last_z > z_threshold: m4.metric("Stres (Z)", f"{last_z:.2f}", "Pahalı 🔴")
+            elif last_z < -z_threshold: m4.metric("Stres (Z)", f"{last_z:.2f}", "Ucuz 🟢")
+            else: m4.metric("Stres (Z)", f"{last_z:.2f}", "Nötr ⚪")
 
-            # --- GRAFİK 1: FİYAT VE BANTLAR (İNTERAKTİF) ---
-            st.subheader("📈 Fiyat Trendi")
-            fig1 = go.Figure()
+            # --- GRAFİK 1: FİYAT VE RENKLİ BANTLAR (ESKİSİ GİBİ) ---
+            st.subheader("📈 Fiyat Trendi ve Kanallar")
+            fig1, ax1 = plt.subplots(figsize=(12, 5))
+            ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
+            ax1.plot(df.index, df['SMA'], color='orange', linestyle='--', linewidth=1.5, label='Ortalama')
+            # İstediğin Kırmızı/Yeşil Bant Çizgileri
+            ax1.plot(df.index, df['Upper'], color='red', alpha=0.6, linewidth=1, label='Üst Bant')
+            ax1.plot(df.index, df['Lower'], color='green', alpha=0.6, linewidth=1, label='Alt Bant')
+            # Arasını gri doldurma
+            ax1.fill_between(df.index, df['Upper'], df['Lower'], color='gray', alpha=0.15)
             
-            # Fiyat Çizgisi
-            fig1.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name='Fiyat', line=dict(color='white', width=2)))
-            # Ortalama
-            fig1.add_trace(go.Scatter(x=df.index, y=df['SMA'], mode='lines', name='Ortalama', line=dict(color='orange', width=1, dash='dash')))
-            # Üst Bant
-            fig1.add_trace(go.Scatter(x=df.index, y=df['Upper'], mode='lines', name='Üst Bant', line=dict(color='red', width=0), showlegend=False))
-            # Alt Bant (Fill TonextY ile arası boyanır)
-            fig1.add_trace(go.Scatter(x=df.index, y=df['Lower'], mode='lines', name='Alt Bant', line=dict(color='green', width=0), fill='tonexty', fillcolor='rgba(128, 128, 128, 0.1)', showlegend=False))
-            
-            fig1.update_layout(template="plotly_dark", height=400, margin=dict(l=0, r=0, t=10, b=0))
-            st.plotly_chart(fig1, use_container_width=True)
+            ax1.set_title(f"{s_in.upper()} Fiyat Analizi")
+            ax1.legend(loc="upper left")
+            ax1.grid(True, alpha=0.2)
+            st.pyplot(fig1)
 
-            # --- GRAFİK 2: Z-SCORE (RENKLİ SÜTUNLAR) ---
-            st.subheader("⚡ Gerginlik Ölçer")
+            # --- GRAFİK 2: Z-SCORE GERGİNLİK ÖLÇER (ALAN BOYAMALI) ---
+            st.subheader("⚡ Gerginlik Ölçer (Z-Score)")
+            fig2, ax2 = plt.subplots(figsize=(12, 4))
+            # Ana çizgi
+            ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
+            # Referans çizgileri
+            ax2.axhline(0, color='white', linestyle=':', alpha=0.5)
+            ax2.axhline(z_threshold, color='red', linestyle='--', linewidth=2, label='Pahalı Sınırı')
+            ax2.axhline(-z_threshold, color='green', linestyle='--', linewidth=2, label='Ucuz Sınırı')
             
-            # Renkleri belirle (Z-Score değerine göre)
-            colors = np.where(df['Z_Score'] > z_threshold, 'red', 
-                     np.where(df['Z_Score'] < -z_threshold, '#00FF00', '#00CCFF'))
+            # --- ESKİSİ GİBİ ALAN BOYAMA (KIRMIZI/YEŞİL DOLGU) ---
+            ax2.fill_between(df.index, z_threshold, df['Z_Score'], where=(df['Z_Score'] > z_threshold), color='red', alpha=0.6)
+            ax2.fill_between(df.index, -z_threshold, df['Z_Score'], where=(df['Z_Score'] < -z_threshold), color='green', alpha=0.6)
             
-            fig2 = go.Figure()
-            fig2.add_trace(go.Bar(x=df.index, y=df['Z_Score'], name='Z-Score', marker_color=colors))
-            
-            # Eşik Çizgileri
-            fig2.add_hline(y=z_threshold, line_dash="dot", line_color="red", annotation_text="Pahalı")
-            fig2.add_hline(y=-z_threshold, line_dash="dot", line_color="#00FF00", annotation_text="Ucuz")
-            
-            fig2.update_layout(template="plotly_dark", height=300, margin=dict(l=0, r=0, t=10, b=0))
-            st.plotly_chart(fig2, use_container_width=True)
+            ax2.set_title("Alım/Satım Bölgeleri")
+            ax2.legend(loc="upper left")
+            ax2.grid(True, alpha=0.2)
+            st.pyplot(fig2)
             
         else:
             st.error("Veri bulunamadı.")
 
 # ==========================
-# SEKME 2: PİYASA RADARI
+# SEKME 2: PİYASA RADARI (Aynı Kaldı)
 # ==========================
 with tab2:
-    st.caption("Aşağıdaki butona basarak tanımlı listeyi tarayabilirsiniz.")
+    st.caption("Yukarıdaki ayarlar ile tarama yapılır.")
     takip_listesi = ['THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'ASELS.IS', 'SISE.IS', 'BIMAS.IS', 'KCHOL.IS', 'SAHOL.IS', 'TUPRS.IS', 'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'GC=F', 'EURUSD=X']
 
     if st.button("🚀 Piyasayı Tara"):
@@ -146,27 +147,20 @@ with tab2:
                     durum = "NÖTR"
                     if z < -z_threshold: durum = "🟢 UCUZ"
                     elif z > z_threshold: durum = "🔴 PAHALI"
-                    
                     res.append({"Sembol": s.replace(".IS",""), "Fiyat": d['Close'].iloc[-1], "Z-Score": z, "Durum": durum})
             except: continue
         st.session_state['tarama_sonuclari'] = pd.DataFrame(res)
 
     if st.session_state['tarama_sonuclari'] is not None:
         df_g = st.session_state['tarama_sonuclari'].copy()
-        # Filtreleme
         col_filt1, col_filt2 = st.columns(2)
         with col_filt1:
             if st.checkbox("Sadece Fırsatları Göster", value=True):
                 df_g = df_g[df_g["Durum"] != "NÖTR"]
-        
-        # Tabloyu Renklendirerek Göster
-        st.dataframe(
-            df_g.style.format({"Fiyat": "{:.2f}", "Z-Score": "{:.2f}"}),
-            use_container_width=True
-        )
+        st.dataframe(df_g.style.format({"Fiyat": "{:.2f}", "Z-Score": "{:.2f}"}), use_container_width=True)
 
 # ==========================
-# SEKME 3: SİMÜLASYON
+# SEKME 3: SİMÜLASYON (KISTAS OLSUN DİYE BU DA MATPLOTLIB OLDU)
 # ==========================
 with tab3:
     c1, c2 = st.columns([1, 4])
@@ -177,24 +171,24 @@ with tab3:
     
     with c2:
         if btn and mc_sym:
-            d_mc = veri_getir(mc_sym)
-            if d_mc is not None:
-                sim_df = monte_carlo_simulasyon(d_mc, mc_gun)
-                
-                # Plotly ile Simülasyon
-                fig_mc = go.Figure()
-                # İlk 50 senaryoyu çiz
-                for col in sim_df.columns[:50]:
-                    fig_mc.add_trace(go.Scatter(x=sim_df.index, y=sim_df[col], mode='lines', line=dict(color='cyan', width=0.5), opacity=0.1, showlegend=False))
-                
-                # Ortalama
-                fig_mc.add_trace(go.Scatter(x=sim_df.index, y=sim_df.mean(axis=1), mode='lines', name='Ortalama', line=dict(color='yellow', width=3)))
-                
-                fig_mc.update_layout(title=f"{mc_sym} - {mc_gun} Günlük Olasılıklar", template="plotly_dark", height=500)
-                st.plotly_chart(fig_mc, use_container_width=True)
-                
-                res = sim_df.iloc[-1]
-                k1, k2, k3 = st.columns(3)
-                k1.metric("Min Beklenti", f"{res.min():.2f}")
-                k2.metric("Ortalama", f"{res.mean():.2f}")
-                k3.metric("Max Beklenti", f"{res.max():.2f}")
+            with st.spinner("Hesaplanıyor..."):
+                d_mc = veri_getir(mc_sym)
+                if d_mc is not None:
+                    sim_df = monte_carlo_simulasyon(d_mc, mc_gun)
+                    
+                    # Matplotlib Spaghetti Grafiği
+                    fig_mc, ax_mc = plt.subplots(figsize=(10, 5))
+                    ax_mc.plot(sim_df, color='cyan', alpha=0.1, linewidth=0.5)
+                    ax_mc.plot(sim_df.mean(axis=1), color='yellow', linewidth=2, label='Ortalama Rota')
+                    
+                    ax_mc.set_title(f"{mc_sym} - {mc_gun} Günlük Olasılıklar")
+                    ax_mc.legend()
+                    ax_mc.grid(True, alpha=0.2)
+                    st.pyplot(fig_mc)
+                    
+                    res = sim_df.iloc[-1]
+                    k1, k2, k3 = st.columns(3)
+                    k1.metric("Min Beklenti", f"{res.min():.2f}")
+                    k2.metric("Ortalama", f"{res.mean():.2f}")
+                    k3.metric("Max Beklenti", f"{res.max():.2f}")
+                else: st.error("Veri yok.")

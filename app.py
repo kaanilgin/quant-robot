@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v13 - Pro", layout="wide")
+st.set_page_config(page_title="Quant Robot v13.1 - Full", layout="wide")
 plt.style.use('dark_background')
 
 # --- HAFIZA ---
@@ -34,14 +34,14 @@ def indikatorleri_hesapla(df, window, z_thresh):
     df['Upper'] = df['SMA'] + (z_thresh * df['STD'])
     df['Lower'] = df['SMA'] - (z_thresh * df['STD'])
     
-    # 2. RSI (Momentum - 14 Günlük Standart)
+    # 2. RSI (Momentum)
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
     
-    # 3. MACD (Trend - 12/26/9 Standart)
+    # 3. MACD (Trend)
     ema12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema26 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = ema12 - ema26
@@ -52,7 +52,6 @@ def indikatorleri_hesapla(df, window, z_thresh):
 # Tablo Renklendirme
 def satir_boya(row):
     stiller = [''] * len(row)
-    # Z-Score Renkleri
     if "PAHALI" in row['Durum']:
         stiller = ['color: #ff4b4b; font-weight: bold'] * len(row)
     elif "UCUZ" in row['Durum']:
@@ -60,7 +59,7 @@ def satir_boya(row):
     return stiller
 
 # --- ANA BAŞLIK ---
-st.title("💎 Quant Terminal Pro (Multi-Indicator)")
+st.title("💎 Quant Terminal Pro (Tam Sürüm)")
 
 # --- SEKMELER ---
 tab1, tab2 = st.tabs(["📊 Detaylı Analiz", "📡 Mega Radar"])
@@ -92,32 +91,27 @@ with tab1:
             last_macd = df['MACD'].iloc[-1]
             last_sig = df['Signal_Line'].iloc[-1]
             
-            # --- 1. ANA METRİKLER ---
+            # --- METRİKLER ---
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Fiyat", f"{last_p:.2f}")
             
-            # Z-Score Yorumu
             z_durum = "Nötr ⚪"
             if last_z > z_threshold: z_durum = "Pahalı 🔴"
             elif last_z < -z_threshold: z_durum = "Ucuz 🟢"
-            m2.metric("Z-Score (Konum)", f"{last_z:.2f}", z_durum)
+            m2.metric("Z-Score", f"{last_z:.2f}", z_durum)
             
-            # RSI Yorumu
             rsi_durum = "Nötr ⚪"
             if last_rsi > 70: rsi_durum = "Aşırı Alım 🔴"
             elif last_rsi < 30: rsi_durum = "Aşırı Satım 🟢"
-            m3.metric("RSI (Güç)", f"{last_rsi:.1f}", rsi_durum)
+            m3.metric("RSI", f"{last_rsi:.1f}", rsi_durum)
             
-            # MACD Yorumu
             macd_durum = "Nötr ⚪"
-            if last_macd > last_sig: macd_durum = "Al Sinyali (Pozitif) 🟢"
-            else: macd_durum = "Sat Sinyali (Negatif) 🔴"
-            m4.metric("MACD (Trend)", f"{last_macd:.2f}", macd_durum)
+            if last_macd > last_sig: macd_durum = "Pozitif 🟢"
+            else: macd_durum = "Negatif 🔴"
+            m4.metric("MACD", f"{last_macd:.2f}", macd_durum)
             
-            # --- 2. GRAFİKLER ---
-            
-            # Grafik A: Fiyat ve Bantlar
-            st.subheader("📈 Fiyat ve Bollinger Bantları")
+            # --- GRAFİK 1: FİYAT ---
+            st.subheader("1️⃣ Fiyat Trendi")
             fig1, ax1 = plt.subplots(figsize=(12, 4))
             ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
             ax1.plot(df.index, df['SMA'], color='orange', linestyle='--', label='Ortalama')
@@ -126,33 +120,51 @@ with tab1:
             ax1.grid(True, alpha=0.2)
             st.pyplot(fig1)
 
-            # Grafik B: RSI ve MACD (Yan Yana)
+            # --- GRAFİK 2: GERGİNLİK ÖLÇER (Z-SCORE - GERİ GELDİ!) ---
+            st.subheader("2️⃣ Gerginlik Ölçer (Z-Score)")
+            fig2, ax2 = plt.subplots(figsize=(12, 4))
+            ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
+            # Referans Çizgileri
+            ax2.axhline(0, color='white', linestyle=':', alpha=0.5)
+            ax2.axhline(z_threshold, color='red', linestyle='--', linewidth=2, label='Pahalı')
+            ax2.axhline(-z_threshold, color='green', linestyle='--', linewidth=2, label='Ucuz')
+            
+            # --- ALAN BOYAMA (İstediğin kısım) ---
+            ax2.fill_between(df.index, z_threshold, df['Z_Score'], where=(df['Z_Score'] > z_threshold), color='red', alpha=0.6)
+            ax2.fill_between(df.index, -z_threshold, df['Z_Score'], where=(df['Z_Score'] < -z_threshold), color='green', alpha=0.6)
+            
+            ax2.legend(loc="upper left")
+            ax2.grid(True, alpha=0.2)
+            st.pyplot(fig2)
+
+            # --- GRAFİK 3: YARDIMCI İNDİKATÖRLER (RSI & MACD) ---
+            st.subheader("3️⃣ Yardımcı Göstergeler")
             c_g1, c_g2 = st.columns(2)
             
             with c_g1:
-                st.markdown("**RSI İndikatörü**")
-                fig2, ax2 = plt.subplots(figsize=(6, 3))
-                ax2.plot(df.index, df['RSI'], color='cyan')
-                ax2.axhline(70, color='red', linestyle='--')
-                ax2.axhline(30, color='green', linestyle='--')
-                ax2.set_ylim(0, 100)
-                ax2.grid(True, alpha=0.2)
-                st.pyplot(fig2)
-                
-            with c_g2:
-                st.markdown("**MACD İndikatörü**")
+                st.markdown("**RSI (Güç)**")
                 fig3, ax3 = plt.subplots(figsize=(6, 3))
-                ax3.plot(df.index, df['MACD'], color='yellow', label='MACD')
-                ax3.plot(df.index, df['Signal_Line'], color='red', label='Sinyal')
-                ax3.bar(df.index, df['MACD']-df['Signal_Line'], color='gray', alpha=0.3)
+                ax3.plot(df.index, df['RSI'], color='magenta')
+                ax3.axhline(70, color='red', linestyle='--', linewidth=1)
+                ax3.axhline(30, color='green', linestyle='--', linewidth=1)
+                ax3.set_ylim(0, 100)
                 ax3.grid(True, alpha=0.2)
                 st.pyplot(fig3)
+                
+            with c_g2:
+                st.markdown("**MACD (Trend)**")
+                fig4, ax4 = plt.subplots(figsize=(6, 3))
+                ax4.plot(df.index, df['MACD'], color='yellow', label='MACD')
+                ax4.plot(df.index, df['Signal_Line'], color='red', label='Sinyal')
+                ax4.bar(df.index, df['MACD']-df['Signal_Line'], color='gray', alpha=0.3)
+                ax4.grid(True, alpha=0.2)
+                st.pyplot(fig4)
 
         else:
             st.error("Veri bulunamadı.")
 
 # ==========================
-# SEKME 2: MEGA RADAR (GELİŞMİŞ)
+# SEKME 2: MEGA RADAR
 # ==========================
 with tab2:
     st.markdown("### 📡 BIST 100 & Global Tarayıcı")
@@ -192,19 +204,15 @@ with tab2:
                     macd = d['MACD'].iloc[-1]
                     sig = d['Signal_Line'].iloc[-1]
                     
-                    # GENEL DURUM KARARI
                     durum = "NÖTR"
-                    
-                    # 1. Z-Score Sinyali
                     if z < -z_thresh_scan: durum = "🟢 UCUZ"
                     elif z > z_thresh_scan: durum = "🔴 PAHALI"
                     
-                    # 2. RSI Filtresi (Ekstra bilgi olarak ekliyoruz)
+                    # RSI ve MACD Notları
                     rsi_not = "Normal"
                     if rsi < 30: rsi_not = "Dipte (30↓)"
                     elif rsi > 70: rsi_not = "Tepede (70↑)"
                     
-                    # 3. MACD Filtresi
                     macd_not = "Negatif"
                     if macd > sig: macd_not = "Pozitif"
                     

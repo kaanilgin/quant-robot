@@ -5,12 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v3 - Monte Carlo", layout="wide")
+st.set_page_config(page_title="Quant Robot v3.2 - Hafızalı", layout="wide")
 
 # --- FONKSİYONLAR ---
 @st.cache_data
 def veri_getir(sembol, periyot="2y"):
-    # Robotun deneyeceği kombinasyonlar (Hata önleyici)
     denenecekler = [
         sembol, sembol.upper(), 
         sembol.upper().replace('.IS', '.is'), 
@@ -34,45 +33,32 @@ def z_score_hesapla(df, window):
     df['Z_Score'] = (df['Close'] - df['SMA']) / df['STD']
     return df
 
-# --- YENİ: MONTE CARLO FONKSİYONU ---
 def monte_carlo_simulasyon(df, gun_sayisi=90, sim_sayisi=200):
-    # Günlük getirileri (değişim oranlarını) hesapla
     getiriler = df['Close'].pct_change().dropna()
-    
-    # Geçmişin ortalaması ve standart sapması (oynaklığı)
     mu = getiriler.mean()
     sigma = getiriler.std()
-    
-    # Son kapanış fiyatı (Başlangıç noktası)
     son_fiyat = df['Close'].iloc[-1]
     
-    # Simülasyon matrisi oluştur
     simulasyon_df = pd.DataFrame()
     
     for x in range(sim_sayisi):
         fiyatlar = [son_fiyat]
         for i in range(gun_sayisi):
-            # Rastgele bir şok (random shock) üret
             sok = np.random.normal(mu, sigma)
             yeni_fiyat = fiyatlar[-1] * (1 + sok)
             fiyatlar.append(yeni_fiyat)
-            
         simulasyon_df[f"Senaryo {x}"] = fiyatlar
         
     return simulasyon_df
 
-# --- SOL MENÜ (AYARLAR) ---
+# --- AYARLAR ---
 st.sidebar.header("⚙️ Genel Ayarlar")
 window = st.sidebar.slider("SMA Periyodu (Gün)", 10, 200, 50, 5)
 z_threshold = st.sidebar.slider("Z-Score Hassasiyeti", 1.0, 3.0, 2.0, 0.1)
-
-st.sidebar.info("v3.0 - Monte Carlo Modülü Eklendi 🎲")
+st.sidebar.info("v3.2 - Hafıza Modülü Aktif 🧠")
 
 # --- ANA EKRAN ---
 st.title("💎 Ultimate Quant Terminali")
-st.markdown("Piyasa analizi, fırsat taraması ve gelecek simülasyonu.")
-
-# 3 SEKME OLDU
 tab1, tab2, tab3 = st.tabs(["📊 Detaylı Analiz", "📡 Fırsat Radarı", "🎲 Monte Carlo Lab"])
 
 # ==========================
@@ -80,7 +66,7 @@ tab1, tab2, tab3 = st.tabs(["📊 Detaylı Analiz", "📡 Fırsat Radarı", "�
 # ==========================
 with tab1:
     st.subheader("Tekli Hisse Analizi")
-    symbol_input = st.text_input("Analiz edilecek sembolü girin:", value="", placeholder="Örn: THYAO.IS")
+    symbol_input = st.text_input("Analiz edilecek sembol:", value="", placeholder="Örn: THYAO.IS")
     
     if symbol_input:
         symbol = symbol_input.replace('İ', 'I').replace('ı', 'i').upper().strip()
@@ -110,20 +96,23 @@ with tab1:
             st.error("Veri bulunamadı.")
 
 # ==========================
-# SEKME 2: FIRSAT RADARI
+# SEKME 2: FIRSAT RADARI (HAFIZALI VERSİYON 🧠)
 # ==========================
 with tab2:
-    st.subheader("📡 Piyasa Tarayıcısı (BIST 100 + Kripto)")
+    st.subheader("📡 Piyasa Tarayıcısı")
     
-    # DEV LİSTE (BIST 100 Örnekleri + Kripto)
+    # Session State (Hafıza) Kontrolü
+    if 'tarama_sonuclari' not in st.session_state:
+        st.session_state['tarama_sonuclari'] = None
+
     takip_listesi = [
         'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'ASELS.IS', 'SISE.IS', 'BIMAS.IS', 
         'KCHOL.IS', 'SAHOL.IS', 'TUPRS.IS', 'PETKM.IS', 'HEKTS.IS', 'SASA.IS', 'KOZAL.IS',
-        'FROTO.IS', 'TOASO.IS', 'TTRAK.IS', 'PGSUS.IS', 'TAVHL.IS', 'MGROS.IS', 'SOKM.IS',
-        'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'XRP-USD', 'GC=F', 'EURUSD=X'
+        'FROTO.IS', 'TOASO.IS', 'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'GC=F', 'EURUSD=X'
     ]
     
-    if st.button("🚀 Taramayı Başlat", key="tara_btn"):
+    # Butona basılınca tarama yap ve HAFIZAYA KAYDET
+    if st.button("🚀 Taramayı Başlat"):
         firsatlar = []
         bar = st.progress(0)
         for i, s in enumerate(takip_listesi):
@@ -141,25 +130,37 @@ with tab2:
                     
                     firsatlar.append({"Sembol": s.upper().replace(".IS",""), "Fiyat": f"{p:.2f}", "Z-Score": f"{z:.2f}", "Durum": durum})
             except: continue
-            
+        
+        # Sonuçları DataFrame'e çevirip hafızaya atıyoruz
         if firsatlar:
-            df_sonuc = pd.DataFrame(firsatlar)
-            if st.checkbox("Sadece Fırsatları Göster"):
-                df_sonuc = df_sonuc[df_sonuc["Durum"] != "NÖTR"]
-            st.dataframe(df_sonuc, use_container_width=True, hide_index=True)
+            st.session_state['tarama_sonuclari'] = pd.DataFrame(firsatlar)
+        else:
+            st.warning("Veri bulunamadı.")
+
+    # --- SONUÇLARI GÖSTERME (BUTONDAN BAĞIMSIZ) ---
+    # Eğer hafızada veri varsa, her durumda (sayfa yenilense bile) göster
+    if st.session_state['tarama_sonuclari'] is not None:
+        df_goster = st.session_state['tarama_sonuclari'].copy()
+        
+        # Filtreleme Kutusu
+        sadece_firsat = st.checkbox("Sadece Fırsatları (AL/SAT) Göster", value=False)
+        
+        if sadece_firsat:
+            df_goster = df_goster[df_goster["Durum"] != "NÖTR"]
+        
+        st.success(f"Sonuçlar Görüntüleniyor ({len(df_goster)} Kayıt)")
+        st.dataframe(df_goster, use_container_width=True, hide_index=True)
 
 # ==========================
-# SEKME 3: MONTE CARLO LABORATUVARI (YENİ)
+# SEKME 3: MONTE CARLO LABORATUVARI
 # ==========================
 with tab3:
     st.subheader("🎲 Gelecek Simülasyonu (Monte Carlo)")
-    st.markdown("Geçmiş volatiliteye dayanarak olası gelecek senaryolarını hesaplar.")
     
     col_mc1, col_mc2 = st.columns([1, 3])
     
     with col_mc1:
         mc_symbol_input = st.text_input("Sembol Gir:", value="THYAO.IS", key="mc_input")
-        # Senin istediğin 90 gün burada varsayılan ayar
         mc_gun = st.slider("Tahmin Süresi (Gün)", 30, 180, 90) 
         mc_sim_sayisi = st.slider("Senaryo Sayısı", 50, 500, 200)
         mc_btn = st.button("Simüle Et 🔮")
@@ -169,38 +170,36 @@ with tab3:
             mc_symbol = mc_symbol_input.replace('İ', 'I').replace('ı', 'i').upper().strip()
             if mc_symbol.endswith(".IS"): mc_symbol = mc_symbol.replace(".IS", ".is")
             
-            with st.spinner("Olasılıklar hesaplanıyor..."):
+            with st.spinner(f"{mc_symbol} için simülasyon çalıştırılıyor..."):
                 df_mc = veri_getir(mc_symbol)
                 
-                if df_mc is not None:
+                if df_mc is not None and len(df_mc) > 1:
+                    son_fiyat = df_mc['Close'].iloc[-1]
+                    onceki_fiyat = df_mc['Close'].iloc[-2]
+                    degisim = son_fiyat - onceki_fiyat
+                    yuzde_degisim = (degisim / onceki_fiyat) * 100
+                    
+                    st.markdown("### 📊 Mevcut Piyasa Durumu")
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("Son Fiyat", f"{son_fiyat:.2f}")
+                    m2.metric("Günlük Değişim", f"%{yuzde_degisim:.2f}", f"{degisim:.2f}")
+                    m3.metric("Analiz Periyodu", f"{mc_gun} Gün")
+                    st.divider() 
+                    
                     sim_df = monte_carlo_simulasyon(df_mc, mc_gun, mc_sim_sayisi)
                     
-                    # Grafiği Çiz
                     fig, ax = plt.subplots(figsize=(10, 5))
-                    # İlk 50 senaryoyu çiz (hepsini çizersek grafik karışabilir)
                     ax.plot(sim_df.iloc[:, :50], color='gray', alpha=0.1, linewidth=1)
-                    # Ortalamayı çiz
-                    ax.plot(sim_df.mean(axis=1), color='red', linewidth=2, label='Ortalama Beklenti')
+                    ax.plot(sim_df.mean(axis=1), color='red', linewidth=2, label='Ortalama Rota')
                     
-                    ax.set_title(f"{mc_symbol} - {mc_gun} Günlük Gelecek Simülasyonu")
+                    ax.set_title(f"{mc_symbol} - Olası Gelecek Senaryoları")
                     ax.legend()
                     st.pyplot(fig)
                     
-                    # İstatistikler
-                    bitis_fiyatlari = sim_df.iloc[-1]
-                    max_fiyat = bitis_fiyatlari.max()
-                    min_fiyat = bitis_fiyatlari.min()
-                    ort_fiyat = bitis_fiyatlari.mean()
-                    
-                    st.success(f"Analiz Tamamlandı! ({mc_sim_sayisi} Senaryo)")
-                    
-                    # Tahmin Kartları
+                    bitis = sim_df.iloc[-1]
                     k1, k2, k3 = st.columns(3)
-                    k1.metric("En Kötü Senaryo", f"{min_fiyat:.2f}")
-                    k2.metric("Ortalama Beklenti", f"{ort_fiyat:.2f}")
-                    k3.metric("En İyi Senaryo", f"{max_fiyat:.2f}")
-                    
+                    k1.metric("En Kötü İhtimal", f"{bitis.min():.2f}")
+                    k2.metric("Ortalama Beklenti", f"{bitis.mean():.2f}")
+                    k3.metric("En İyi İhtimal", f"{bitis.max():.2f}")
                 else:
                     st.error("Veri bulunamadı!")
-        else:
-            st.info("👈 Sol taraftan ayarları yap ve butona bas.")

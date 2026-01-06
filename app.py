@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v11 - Focus", layout="wide")
+st.set_page_config(page_title="Quant Robot v12 - Design", layout="wide")
 plt.style.use('dark_background')
 
 # --- HAFIZA ---
@@ -34,19 +34,38 @@ def teknik_hesapla(df, window, z_thresh):
     df['Lower'] = df['SMA'] - (z_thresh * df['STD'])
     return df
 
+# Tablo Renklendirme Fonksiyonu
+def renk_ver(val):
+    color = 'white'
+    weight = 'normal'
+    if val == "🔴 PAHALI":
+        color = '#ff4b4b' # Kırmızı
+        weight = 'bold'
+    elif val == "🟢 UCUZ":
+        color = '#00c853' # Yeşil
+        weight = 'bold'
+    return f'color: {color}; font-weight: {weight}'
+
+# Satır bazlı renklendirme
+def satir_boya(row):
+    stiller = [''] * len(row)
+    if "PAHALI" in row['Durum']:
+        stiller = ['color: #ff4b4b; font-weight: bold'] * len(row)
+    elif "UCUZ" in row['Durum']:
+        stiller = ['color: #00c853; font-weight: bold'] * len(row)
+    return stiller
+
 # --- ANA BAŞLIK ---
 st.title("💎 Quant Terminal Pro")
 
-# --- SADECE 2 SEKME KALDI ---
+# --- SEKMELER ---
 tab1, tab2 = st.tabs(["📊 Teknik Analiz", "📡 Mega Radar"])
 
 # ==========================
-# SEKME 1: TEKNİK ANALİZ (KONTROLLER BURADA)
+# SEKME 1: TEKNİK ANALİZ (AYNI KALDI)
 # ==========================
 with tab1:
     st.markdown("### 🔍 Varlık Analizi")
-    
-    # 3'lü Kontrol Paneli
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
         s_in = st.text_input("Sembol:", value="THYAO.IS", placeholder="Örn: GARAN.IS")
@@ -61,13 +80,11 @@ with tab1:
         df = veri_getir(s_in)
         if df is not None:
             df = teknik_hesapla(df, window, z_threshold)
-            
             last_p = df['Close'].iloc[-1]
             last_z = df['Z_Score'].iloc[-1]
             last_sma = df['SMA'].iloc[-1]
             fark = ((last_p - last_sma) / last_sma) * 100
             
-            # Kartlar
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Fiyat", f"{last_p:.2f}")
             m2.metric("Ortalama", f"{last_sma:.2f}")
@@ -77,7 +94,6 @@ with tab1:
             elif last_z < -z_threshold: m4.metric("Stres (Z)", f"{last_z:.2f}", "Ucuz 🟢")
             else: m4.metric("Stres (Z)", f"{last_z:.2f}", "Nötr ⚪")
 
-            # Grafik 1: Fiyat
             st.subheader("📈 Fiyat Trendi")
             fig1, ax1 = plt.subplots(figsize=(12, 5))
             ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
@@ -89,7 +105,6 @@ with tab1:
             ax1.grid(True, alpha=0.2)
             st.pyplot(fig1)
 
-            # Grafik 2: Gerginlik
             st.subheader("⚡ Gerginlik Ölçer")
             fig2, ax2 = plt.subplots(figsize=(12, 4))
             ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
@@ -105,25 +120,23 @@ with tab1:
             st.error("Veri bulunamadı.")
 
 # ==========================
-# SEKME 2: MEGA RADAR (ARAMA KUTUSU YOK ❌)
+# SEKME 2: MEGA RADAR (GÖRSEL ŞÖLEN 🎨)
 # ==========================
 with tab2:
     st.markdown("### 📡 BIST 100 & Global Tarayıcı")
     
-    with st.expander("⚙️ Tarama Hassasiyet Ayarları (İsteğe Bağlı)"):
+    with st.expander("⚙️ Tarama Ayarları"):
         col_set1, col_set2 = st.columns(2)
         window_scan = col_set1.number_input("Ortalama Gün", 10, 200, 50, 5, key="w2")
         z_thresh_scan = col_set2.number_input("Hassasiyet (Sigma)", 1.0, 3.0, 2.0, 0.1, key="z2")
 
     takip_listesi = [
-        # BIST
         'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'ISCTR.IS', 'YKBNK.IS', 'VAKBN.IS', 'HALKB.IS',
         'EREGL.IS', 'KRDMD.IS', 'ISDMR.IS', 'TUPRS.IS', 'PETKM.IS', 'ASELS.IS', 'SISE.IS', 'SASA.IS', 'HEKTS.IS',
         'KCHOL.IS', 'SAHOL.IS', 'DOHOL.IS', 'ENKAI.IS', 'TEKFEN.IS', 'ALARK.IS', 'BIMAS.IS', 'MGROS.IS', 'SOKM.IS',
         'FROTO.IS', 'TOASO.IS', 'TTRAK.IS', 'PGSUS.IS', 'TAVHL.IS',
         'ODAS.IS', 'ZOREN.IS', 'ASTOR.IS', 'KONTR.IS', 'SMRTG.IS', 'MIATK.IS', 'REEDR.IS', 'SDTTR.IS',
         'KOZAL.IS', 'KOZAA.IS', 'IPEKE.IS', 'EKGYO.IS', 'OYAKC.IS',
-        # GLOBAL
         'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'XRP-USD', 'DOGE-USD',
         'GC=F', 'SI=F', 'CL=F', 'EURUSD=X', 'TRY=X'
     ]
@@ -153,8 +166,29 @@ with tab2:
     if st.session_state['tarama_sonuclari'] is not None:
         df_g = st.session_state['tarama_sonuclari'].copy()
         
-        # Filtreleme (Varsayılan olarak kapalı)
-        if st.checkbox("Sadece Fırsatları Göster", value=False):
+        # Filtreleme
+        filtre = st.checkbox("Sadece Fırsatları Göster", value=False)
+        if filtre:
             df_g = df_g[df_g["Durum"] != "NÖTR"]
+        
+        # --- ÖZET KARTLAR (YENİ!) ---
+        toplam = len(df_g)
+        ucuzlar = len(df_g[df_g['Durum'] == "🟢 UCUZ"])
+        pahalilar = len(df_g[df_g['Durum'] == "🔴 PAHALI"])
+        
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Görüntülenen Varlık", f"{toplam} Adet")
+        k2.metric("Ucuz Fırsatlar", f"{ucuzlar} Adet", delta="Alım Bölgesi", delta_color="normal")
+        k3.metric("Pahalı Riskler", f"{pahalilar} Adet", delta="Satım Bölgesi", delta_color="inverse")
+        
+        st.markdown("---")
             
-        st.dataframe(df_g.style.format({"Fiyat": "{:.2f}", "Z-Score": "{:.2f}"}), use_container_width=True)
+        # --- RENKLİ TABLO TASARIMI (YENİ!) ---
+        # Pandas Styler kullanarak satırları boyuyoruz
+        st.dataframe(
+            df_g.style
+            .apply(satir_boya, axis=1) # Satırları boya
+            .format({"Fiyat": "{:.2f}", "Z-Score": "{:.2f}"}), # Sayıları düzelt
+            use_container_width=True,
+            height=(len(df_g) + 1) * 35 + 3 # Tablo boyunu veriye göre ayarla
+        )

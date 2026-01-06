@@ -3,15 +3,12 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import datetime
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v6.1 - Lite", layout="wide")
+st.set_page_config(page_title="Quant Robot v7", layout="wide")
+plt.style.use('dark_background') # Grafikler hep koyu olsun
 
-# Grafikleri koyu tema yapalım
-plt.style.use('dark_background')
-
-# --- SESSION STATE (Hafıza) ---
+# --- HAFIZA (Session State) ---
 if 'tarama_sonuclari' not in st.session_state:
     st.session_state['tarama_sonuclari'] = None
 
@@ -30,14 +27,9 @@ def veri_getir(sembol, periyot="1y"):
     return None
 
 def teknik_hesapla(df, window, z_thresh):
-    # Temel Hesaplamalar
-    df['SMA'] = df['Close'].rolling(window=window).mean() # Adil Değer
+    df['SMA'] = df['Close'].rolling(window=window).mean()
     df['STD'] = df['Close'].rolling(window=window).std()
-    
-    # Z-Score
     df['Z_Score'] = (df['Close'] - df['SMA']) / df['STD']
-    
-    # Bantlar (Fiyat Grafiği İçin)
     df['Upper'] = df['SMA'] + (z_thresh * df['STD'])
     df['Lower'] = df['SMA'] - (z_thresh * df['STD'])
     return df
@@ -46,87 +38,88 @@ def monte_carlo_simulasyon(df, gun_sayisi, sim_sayisi=100):
     getiriler = df['Close'].pct_change().dropna()
     mu, sigma = getiriler.mean(), getiriler.std()
     son_fiyat = df['Close'].iloc[-1]
-    
     sim_df = pd.DataFrame()
     for x in range(sim_sayisi):
         fiyatlar = [son_fiyat]
         for i in range(gun_sayisi):
-            sok = np.random.normal(mu, sigma)
-            fiyatlar.append(fiyatlar[-1] * (1 + sok))
+            fiyatlar.append(fiyatlar[-1] * (1 + np.random.normal(mu, sigma)))
         sim_df[f"Senaryo {x}"] = fiyatlar
     return sim_df
 
-# --- SOL MENÜ ---
-st.sidebar.header("⚙️ Ayarlar")
-window = st.sidebar.slider("Ortalama (SMA) Günü", 10, 200, 50, 5)
-z_threshold = st.sidebar.slider("Hassasiyet (Sigma)", 1.0, 3.0, 2.0, 0.1)
+# --- ANA BAŞLIK ---
+st.title("💎 Ultimate Quant Terminali")
 
-# --- ANA EKRAN ---
-st.title("💎 Ultimate Quant Robotu (Web Sürümü)")
-# Sadece 3 Sekme Kaldı
-tab1, tab2, tab3 = st.tabs(["📊 PRO Analiz", "📡 Mega Tarayıcı", "🎲 Monte Carlo"])
+# --- AYARLAR PANELİ (SOL MENÜ YERİNE BURADA) ---
+# Kullanıcı bu kutuya tıklayınca ayarlar açılır, yer kaplamaz.
+with st.expander("⚙️ ROBOT AYARLARI (Tıkla ve Düzenle)", expanded=False):
+    col_set1, col_set2 = st.columns(2)
+    with col_set1:
+        window = st.slider("Ortalama (SMA) Periyodu", 10, 200, 50, 5)
+    with col_set2:
+        z_threshold = st.slider("Hassasiyet (Standart Sapma)", 1.0, 3.0, 2.0, 0.1)
+
+# --- SEKMELER ---
+tab1, tab2, tab3 = st.tabs(["📊 PRO Analiz", "📡 Mega Tarayıcı", "🎲 Gelecek Tahmini"])
 
 # ==========================
-# SEKME 1: PRO ANALİZ (Çift Grafik + Alarm)
+# SEKME 1: PRO ANALİZ (ÇİFT GRAFİK 📈)
 # ==========================
 with tab1:
-    st.subheader("Fiyat & Gerginlik Analizi")
-    s_in = st.text_input("Sembol Gir:", value="THYAO.IS", key="analiz_input")
+    # Arama Kutusu
+    col_input, col_info = st.columns([1, 3])
+    with col_input:
+        s_in = st.text_input("Hisse/Coin Sembolü:", value="THYAO.IS", key="analiz_input")
     
     if s_in:
         df = veri_getir(s_in)
         if df is not None:
             df = teknik_hesapla(df, window, z_threshold)
             
-            # Son Değerler
-            last_p = df['Close'].iloc[-1]
-            last_sma = df['SMA'].iloc[-1]
-            last_z = df['Z_Score'].iloc[-1]
-            fark = last_p - last_sma
+            # Son Veriler
+            son_fiyat = df['Close'].iloc[-1]
+            son_z = df['Z_Score'].iloc[-1]
+            son_sma = df['SMA'].iloc[-1]
+            fark_yuzde = ((son_fiyat - son_sma) / son_sma) * 100
             
-            # 1. METRİKLER
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Anlık Fiyat", f"{last_p:.2f}")
-            c2.metric("Adil Değer (MA)", f"{last_sma:.2f}")
-            c3.metric("Fark (Köpük)", f"{fark:.2f}")
-            c4.metric("Z-Score (Gerginlik)", f"{last_z:.2f}")
+            # --- 1. METRİKLER ---
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Anlık Fiyat", f"{son_fiyat:.2f}")
+            m2.metric("Adil Değer (Ortalama)", f"{son_sma:.2f}")
+            m3.metric("Ortalamadan Fark", f"%{fark_yuzde:.1f}")
             
-            # 2. AKILLI UYARI KUTUSU
-            if last_z > z_threshold:
-                st.error(f"🔴 KIRMIZI ALARM! Fiyat çok şişti ({last_z:.2f} Sigma). Düzeltme gelebilir, ALMA!")
-            elif last_z < -z_threshold:
-                st.success(f"🟢 YEŞİL ALARM! Fiyat çok ucuzladı ({last_z:.2f} Sigma). Tepki gelebilir, ALIM FIRSATI!")
-            elif last_z > (z_threshold * 0.7):
-                st.warning("⚠️ SARI ALARM (ISINIYOR)! Fiyat kritik sınıra yaklaştı.")
-            elif last_z < -(z_threshold * 0.7):
-                st.warning("⚠️ SARI ALARM (SOĞUYOR)! Fiyat dip seviyeye yaklaşıyor.")
-            else:
-                st.info("⚪ PİYASA NÖTR. Fiyat ortalamalarda geziniyor.")
+            # Z-Score Rengi
+            z_renk = "off"
+            if son_z > z_threshold: z_renk = "inverse" # Kırmızımsı
+            elif son_z < -z_threshold: z_renk = "normal" # Yeşilimsi
+            m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}")
 
-            # 3. GRAFİK 1: FİYAT VE BANTLAR
-            st.markdown("### 📈 Fiyat Analizi")
+            # --- 2. GRAFİK: FİYAT VE KANALLAR ---
+            st.markdown("#### 1️⃣ Fiyat Trendi ve Kanallar")
             fig1, ax1 = plt.subplots(figsize=(12, 5))
-            ax1.plot(df.index, df['Close'], color='white', linewidth=1.5, label='Fiyat')
-            ax1.plot(df.index, df['SMA'], color='orange', linestyle='--', linewidth=1.5, label=f'{window} Günlük Ort.')
-            ax1.plot(df.index, df['Upper'], color='red', alpha=0.3, linewidth=0.5, label='Üst Sınır')
-            ax1.plot(df.index, df['Lower'], color='green', alpha=0.3, linewidth=0.5, label='Alt Sınır')
+            ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
+            ax1.plot(df.index, df['SMA'], color='orange', linestyle='--', linewidth=1.5, label='Ortalama')
+            ax1.plot(df.index, df['Upper'], color='red', alpha=0.5, linewidth=1, label='Üst Bant')
+            ax1.plot(df.index, df['Lower'], color='green', alpha=0.5, linewidth=1, label='Alt Bant')
             ax1.fill_between(df.index, df['Upper'], df['Lower'], color='gray', alpha=0.1)
-            ax1.legend(loc='upper left')
+            ax1.set_title(f"{s_in.upper()} Fiyat Analizi")
+            ax1.legend(loc="upper left")
             ax1.grid(True, alpha=0.2)
             st.pyplot(fig1)
 
-            # 4. GRAFİK 2: Z-SCORE
-            st.markdown("### ⚡ Z-Score Radarı (Gerginlik Ölçer)")
+            # --- 3. GRAFİK: Z-SCORE (GERGİNLİK) ---
+            st.markdown("#### 2️⃣ Gerginlik Ölçer (Z-Score)")
             fig2, ax2 = plt.subplots(figsize=(12, 4))
-            ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Z-Score')
+            ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
+            ax2.axhline(0, color='white', linestyle=':', alpha=0.5)
             ax2.axhline(z_threshold, color='red', linestyle='--', linewidth=2, label='Pahalı')
             ax2.axhline(-z_threshold, color='green', linestyle='--', linewidth=2, label='Ucuz')
-            ax2.axhline(0, color='white', linestyle=':', alpha=0.5)
             
-            ax2.fill_between(df.index, z_threshold, df['Z_Score'], where=(df['Z_Score'] > z_threshold), color='red', alpha=0.5)
-            ax2.fill_between(df.index, -z_threshold, df['Z_Score'], where=(df['Z_Score'] < -z_threshold), color='green', alpha=0.5)
+            # Alanları Boya
+            ax2.fill_between(df.index, z_threshold, df['Z_Score'], where=(df['Z_Score'] > z_threshold), color='red', alpha=0.6)
+            ax2.fill_between(df.index, -z_threshold, df['Z_Score'], where=(df['Z_Score'] < -z_threshold), color='green', alpha=0.6)
             
-            ax2.legend(loc='upper left')
+            ax2.set_title("Alım/Satım Bölgeleri")
+            ax2.legend(loc="upper left")
             ax2.grid(True, alpha=0.2)
             st.pyplot(fig2)
             
@@ -137,7 +130,8 @@ with tab1:
 # SEKME 2: MEGA TARAYICI
 # ==========================
 with tab2:
-    st.subheader("📡 Piyasa Tarayıcısı (BIST + Kripto + FX)")
+    st.subheader("📡 Piyasa Tarayıcısı")
+    st.markdown("_Ayarları yukarıdaki panelden değiştirebilirsin._")
     
     takip_listesi = [
         'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'ASELS.IS', 'SISE.IS', 'SASA.IS', 'HEKTS.IS',
@@ -147,14 +141,14 @@ with tab2:
         'GC=F', 'SI=F', 'CL=F', 'EURUSD=X', 'TRY=X'
     ]
 
-    if st.button("🚀 DEV TARAMAYI BAŞLAT"):
+    if st.button("🚀 TARAMAYI BAŞLAT"):
         res = []
         bar = st.progress(0)
         durum_text = st.empty()
         
         for i, s in enumerate(takip_listesi):
             bar.progress((i+1)/len(takip_listesi))
-            durum_text.text(f"Taranıyor: {s} ...")
+            durum_text.text(f"İnceleniyor: {s}")
             try:
                 d = veri_getir(s, "1y")
                 if d is not None:
@@ -169,7 +163,7 @@ with tab2:
             except: continue
         
         st.session_state['tarama_sonuclari'] = pd.DataFrame(res)
-        durum_text.text("✅ Bitti!")
+        durum_text.text("✅ Tarama Bitti!")
 
     if st.session_state['tarama_sonuclari'] is not None:
         df_g = st.session_state['tarama_sonuclari'].copy()
@@ -178,50 +172,41 @@ with tab2:
         st.dataframe(df_g, use_container_width=True)
 
 # ==========================
-# SEKME 3: MONTE CARLO (Simülasyon)
+# SEKME 3: MONTE CARLO
 # ==========================
 with tab3:
-    st.subheader("🎲 Monte Carlo Laboratuvarı")
+    st.subheader("🎲 Gelecek Simülasyonu")
     
     col_m1, col_m2 = st.columns([1, 3])
-    
     with col_m1:
         mc_sym = st.text_input("Sembol:", value="BTC-USD", key="mc_sym")
-        mc_gun = st.slider("Kaç Gün İleri?", 30, 180, 90)
-        mc_btn = st.button("Simüle Et 🔮")
+        mc_gun = st.slider("Gün İleri", 30, 180, 90)
+        mc_btn = st.button("Simüle Et")
         
     with col_m2:
         if mc_btn and mc_sym:
-            with st.spinner("Hesaplanıyor..."):
+            with st.spinner("Kahin çalışıyor..."):
                 d_mc = veri_getir(mc_sym)
                 if d_mc is not None:
-                    # Mevcut Durum Kartları
+                    # Mevcut Durum
                     son = d_mc['Close'].iloc[-1]
                     degisim = (son - d_mc['Close'].iloc[-2])
                     yuzde = (degisim / d_mc['Close'].iloc[-2]) * 100
                     
-                    m1, m2 = st.columns(2)
-                    m1.metric("Şu Anki Fiyat", f"{son:.2f}")
-                    m2.metric("Günlük Değişim", f"%{yuzde:.2f}", f"{degisim:.2f}")
+                    st.metric("Şu Anki Fiyat", f"{son:.2f}", f"%{yuzde:.2f}")
                     
-                    # Simülasyon
+                    # Simülasyon ve Grafik
                     sim_df = monte_carlo_simulasyon(d_mc, mc_gun)
-                    
-                    # Grafik
                     fig_mc, ax_mc = plt.subplots(figsize=(10, 5))
                     ax_mc.plot(sim_df, color='cyan', alpha=0.1, linewidth=0.5)
                     ax_mc.plot(sim_df.mean(axis=1), color='yellow', linewidth=2, label='Ortalama Rota')
-                    
-                    ax_mc.set_title(f"{mc_sym} - {mc_gun} Günlük Gelecek Tahmini")
                     ax_mc.legend()
                     ax_mc.grid(True, alpha=0.2)
                     st.pyplot(fig_mc)
                     
-                    # Sonuçlar
+                    # İstatistikler
                     bitis = sim_df.iloc[-1]
-                    k1, k2, k3 = st.columns(3)
-                    k1.metric("En Kötü İhtimal", f"{bitis.min():.2f}")
-                    k2.metric("Ortalama Beklenti", f"{bitis.mean():.2f}")
-                    k3.metric("En İyi İhtimal", f"{bitis.max():.2f}")
-                else:
-                    st.error("Veri çekilemedi.")
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("En Kötü", f"{bitis.min():.2f}")
+                    c2.metric("Ortalama", f"{bitis.mean():.2f}")
+                    c3.metric("En İyi", f"{bitis.max():.2f}")

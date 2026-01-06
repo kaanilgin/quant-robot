@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v13.1 - Full", layout="wide")
+st.set_page_config(page_title="Quant Robot v13.2 - Bantlı", layout="wide")
 plt.style.use('dark_background')
 
 # --- HAFIZA ---
@@ -110,26 +110,35 @@ with tab1:
             else: macd_durum = "Negatif 🔴"
             m4.metric("MACD", f"{last_macd:.2f}", macd_durum)
             
-            # --- GRAFİK 1: FİYAT ---
-            st.subheader("1️⃣ Fiyat Trendi")
+            # --- GRAFİK 1: FİYAT (GÜNCELLENDİ! 🌟) ---
+            st.subheader("1️⃣ Fiyat Trendi ve Bantlar")
             fig1, ax1 = plt.subplots(figsize=(12, 4))
+            
+            # Temel Çizgiler
             ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
             ax1.plot(df.index, df['SMA'], color='orange', linestyle='--', label='Ortalama')
+            
+            # --- YENİ EKLENEN ÇİZGİLER ---
+            # Üst Bant (Kırmızı Çizgi)
+            ax1.plot(df.index, df['Upper'], color='red', alpha=0.7, linewidth=1.5, label='Üst Bant')
+            # Alt Bant (Yeşil Çizgi)
+            ax1.plot(df.index, df['Lower'], color='green', alpha=0.7, linewidth=1.5, label='Alt Bant')
+            
+            # Aradaki Gri Dolgu (Aynen duruyor)
             ax1.fill_between(df.index, df['Upper'], df['Lower'], color='gray', alpha=0.15)
+            
             ax1.legend(loc="upper left")
             ax1.grid(True, alpha=0.2)
             st.pyplot(fig1)
 
-            # --- GRAFİK 2: GERGİNLİK ÖLÇER (Z-SCORE - GERİ GELDİ!) ---
+            # --- GRAFİK 2: GERGİNLİK ÖLÇER (Z-SCORE) ---
             st.subheader("2️⃣ Gerginlik Ölçer (Z-Score)")
             fig2, ax2 = plt.subplots(figsize=(12, 4))
             ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
-            # Referans Çizgileri
             ax2.axhline(0, color='white', linestyle=':', alpha=0.5)
             ax2.axhline(z_threshold, color='red', linestyle='--', linewidth=2, label='Pahalı')
             ax2.axhline(-z_threshold, color='green', linestyle='--', linewidth=2, label='Ucuz')
             
-            # --- ALAN BOYAMA (İstediğin kısım) ---
             ax2.fill_between(df.index, z_threshold, df['Z_Score'], where=(df['Z_Score'] > z_threshold), color='red', alpha=0.6)
             ax2.fill_between(df.index, -z_threshold, df['Z_Score'], where=(df['Z_Score'] < -z_threshold), color='green', alpha=0.6)
             
@@ -208,7 +217,6 @@ with tab2:
                     if z < -z_thresh_scan: durum = "🟢 UCUZ"
                     elif z > z_thresh_scan: durum = "🔴 PAHALI"
                     
-                    # RSI ve MACD Notları
                     rsi_not = "Normal"
                     if rsi < 30: rsi_not = "Dipte (30↓)"
                     elif rsi > 70: rsi_not = "Tepede (70↑)"
@@ -236,7 +244,6 @@ with tab2:
         if filtre:
             df_g = df_g[df_g["Durum"] != "NÖTR"]
         
-        # Kartlar
         toplam = len(df_g)
         ucuzlar = len(df_g[df_g['Durum'] == "🟢 UCUZ"])
         pahalilar = len(df_g[df_g['Durum'] == "🔴 PAHALI"])

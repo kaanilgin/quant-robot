@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v7", layout="wide")
+st.set_page_config(page_title="Quant Robot v7.1", layout="wide")
 plt.style.use('dark_background') # Grafikler hep koyu olsun
 
 # --- HAFIZA (Session State) ---
@@ -49,14 +49,18 @@ def monte_carlo_simulasyon(df, gun_sayisi, sim_sayisi=100):
 # --- ANA BAŞLIK ---
 st.title("💎 Ultimate Quant Terminali")
 
-# --- AYARLAR PANELİ (SOL MENÜ YERİNE BURADA) ---
-# Kullanıcı bu kutuya tıklayınca ayarlar açılır, yer kaplamaz.
-with st.expander("⚙️ ROBOT AYARLARI (Tıkla ve Düzenle)", expanded=False):
-    col_set1, col_set2 = st.columns(2)
-    with col_set1:
-        window = st.slider("Ortalama (SMA) Periyodu", 10, 200, 50, 5)
-    with col_set2:
-        z_threshold = st.slider("Hassasiyet (Standart Sapma)", 1.0, 3.0, 2.0, 0.1)
+# --- AYARLAR PANELİ (SABİT VE AÇIK) ---
+st.markdown("### ⚙️ Analiz Parametreleri")
+
+col_set1, col_set2 = st.columns(2)
+with col_set1:
+    # 50 yerine 20 yaparsan daha kısa vadeyi görürsün
+    window = st.slider("Ortalama (SMA) Periyodu", 10, 200, 50, 5)
+with col_set2:
+    # 2.0 standart sapma genelde idealdir
+    z_threshold = st.slider("Hassasiyet (Sigma)", 1.0, 3.0, 2.0, 0.1)
+
+st.divider() # Ayarlarla içerik arasına çizgi çektik
 
 # --- SEKMELER ---
 tab1, tab2, tab3 = st.tabs(["📊 PRO Analiz", "📡 Mega Tarayıcı", "🎲 Gelecek Tahmini"])
@@ -87,11 +91,13 @@ with tab1:
             m2.metric("Adil Değer (Ortalama)", f"{son_sma:.2f}")
             m3.metric("Ortalamadan Fark", f"%{fark_yuzde:.1f}")
             
-            # Z-Score Rengi
-            z_renk = "off"
-            if son_z > z_threshold: z_renk = "inverse" # Kırmızımsı
-            elif son_z < -z_threshold: z_renk = "normal" # Yeşilimsi
-            m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}")
+            # Z-Score Renk Mantığı (Metrik için)
+            if son_z > z_threshold: 
+                m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}", "Pahalı 🔴")
+            elif son_z < -z_threshold: 
+                m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}", "Ucuz 🟢")
+            else:
+                m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}", "Nötr ⚪")
 
             # --- 2. GRAFİK: FİYAT VE KANALLAR ---
             st.markdown("#### 1️⃣ Fiyat Trendi ve Kanallar")
@@ -131,7 +137,7 @@ with tab1:
 # ==========================
 with tab2:
     st.subheader("📡 Piyasa Tarayıcısı")
-    st.markdown("_Ayarları yukarıdaki panelden değiştirebilirsin._")
+    st.markdown("_Yukarıdaki ayarlara göre tarama yapar._")
     
     takip_listesi = [
         'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'ASELS.IS', 'SISE.IS', 'SASA.IS', 'HEKTS.IS',

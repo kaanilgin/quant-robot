@@ -102,10 +102,35 @@ with tab2:
     st.markdown("Aşağıdaki **'Taramayı Başlat'** butonuna basarak popüler listeyi tara.")
     
     # Sabit Takip Listesi (Bunu istediğin gibi genişletebilirsin)
+    # ---------------------------------------------------------
+    # GÜNCELLENMİŞ DEV TAKİP LİSTESİ (BIST 100 + Kripto + Emtia)
+    # ---------------------------------------------------------
     takip_listesi = [
-        'THYAO.is', 'GARAN.is', 'ASELS.is', 'EREGL.is', 'AKBNK.is', # BIST
-        'BTC-USD', 'ETH-USD', 'SOL-USD',                            # Kripto
-        'GC=F', 'EURUSD=X'                                          # Emtia/Forex
+        # --- BANKALAR ---
+        'AKBNK.IS', 'GARAN.IS', 'ISCTR.IS', 'YKBNK.IS', 'VAKBN.IS', 'HALKB.IS', 'TSKB.IS', 'SKBNK.IS',
+        # --- HOLDİNGLER ---
+        'KCHOL.IS', 'SAHOL.IS', 'DOHOL.IS', 'ENKAI.IS', 'TEKFEN.IS', 'ALARK.IS', 'TKFEN.IS', 'GSDHO.IS',
+        # --- SANAYİ & METAL ---
+        'EREGL.IS', 'KRDMD.IS', 'ISDMR.IS', 'TUPRS.IS', 'PETKM.IS', 'SISE.IS', 'SASA.IS', 'HEKTS.IS',
+        # --- OTOMOTİV ---
+        'FROTO.IS', 'TOASO.IS', 'TTRAK.IS', 'DOAS.IS', 'OTKAR.IS', 'KARSAN.IS', 'TMSN.IS',
+        # --- HAVACILIK & ULAŞIM ---
+        'THYAO.IS', 'PGSUS.IS', 'TAVHL.IS', 'CLEBI.IS',
+        # --- PERAKENDE & GIDA ---
+        'BIMAS.IS', 'MGROS.IS', 'SOKM.IS', 'AEFES.IS', 'CCOLA.IS', 'ULKER.IS', 'TUKAS.IS',
+        # --- TEKNOLOJİ & SAVUNMA ---
+        'ASELS.IS', 'KFEIN.IS', 'LOGO.IS', 'NETAS.IS', 'KONTR.IS', 'MIATK.IS', 'SMRTG.IS', 'REEDR.IS',
+        # --- ENERJİ ---
+        'AKSEN.IS', 'ZOREN.IS', 'ODAS.IS', 'AYDEM.IS', 'GWIND.IS', 'CANT.IS', 'BIOEN.IS', 'ASTOR.IS',
+        # --- GYO & İNŞAAT ---
+        'EKGYO.IS', 'ISGYO.IS', 'TRGYO.IS', 'AKFGY.IS',
+        # --- MADEN ---
+        'KOZAL.IS', 'KOZAA.IS', 'IPEKE.IS',
+        # --- ÇİMENTO ---
+        'AKCNS.IS', 'CIMSA.IS', 'OYAKC.IS',
+        # --- KRİPTO & EMTİA & DÖVİZ (BONUSLAR) ---
+        'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'XRP-USD', 'DOGE-USD',
+        'GC=F', 'SI=F', 'CL=F', 'EURUSD=X' 
     ]
     
     if st.button("🚀 Taramayı Başlat"):

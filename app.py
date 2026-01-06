@@ -2,13 +2,13 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v7.1", layout="wide")
-plt.style.use('dark_background') # Grafikler hep koyu olsun
+st.set_page_config(page_title="Quant Robot v8 - Premium", layout="wide")
 
-# --- HAFIZA (Session State) ---
+# --- HAFIZA ---
 if 'tarama_sonuclari' not in st.session_state:
     st.session_state['tarama_sonuclari'] = None
 
@@ -46,173 +46,155 @@ def monte_carlo_simulasyon(df, gun_sayisi, sim_sayisi=100):
         sim_df[f"Senaryo {x}"] = fiyatlar
     return sim_df
 
-# --- ANA BAŞLIK ---
-st.title("💎 Ultimate Quant Terminali")
+# --- ÜST PANEL (LOGO & KONTROLLER) ---
+st.title("💎 Quant Terminal Pro")
 
-# --- AYARLAR PANELİ (SABİT VE AÇIK) ---
-st.markdown("### ⚙️ Analiz Parametreleri")
+# Kontrolleri tek bir şık kutuya (Container) alıyoruz
+with st.container():
+    c1, c2, c3 = st.columns([2, 1, 1])
+    with c1:
+        # Arama kutusu en solda
+        s_in = st.text_input("🔍 Sembol Arayın:", value="THYAO.IS", placeholder="Örn: GARAN.IS, BTC-USD")
+    with c2:
+        window = st.number_input("Ortalama (Gün)", min_value=10, max_value=200, value=50, step=5)
+    with c3:
+        z_threshold = st.number_input("Hassasiyet", min_value=1.0, max_value=3.0, value=2.0, step=0.1)
 
-col_set1, col_set2 = st.columns(2)
-with col_set1:
-    # 50 yerine 20 yaparsan daha kısa vadeyi görürsün
-    window = st.slider("Ortalama (SMA) Periyodu", 10, 200, 50, 5)
-with col_set2:
-    # 2.0 standart sapma genelde idealdir
-    z_threshold = st.slider("Hassasiyet (Sigma)", 1.0, 3.0, 2.0, 0.1)
-
-st.divider() # Ayarlarla içerik arasına çizgi çektik
+st.divider()
 
 # --- SEKMELER ---
-tab1, tab2, tab3 = st.tabs(["📊 PRO Analiz", "📡 Mega Tarayıcı", "🎲 Gelecek Tahmini"])
+tab1, tab2, tab3 = st.tabs(["📊 Teknik Analiz", "📡 Piyasa Radarı", "🎲 Simülasyon"])
 
 # ==========================
-# SEKME 1: PRO ANALİZ (ÇİFT GRAFİK 📈)
+# SEKME 1: PREMIUM ANALİZ (PLOTLY)
 # ==========================
 with tab1:
-    # Arama Kutusu
-    col_input, col_info = st.columns([1, 3])
-    with col_input:
-        s_in = st.text_input("Hisse/Coin Sembolü:", value="THYAO.IS", key="analiz_input")
-    
     if s_in:
         df = veri_getir(s_in)
         if df is not None:
             df = teknik_hesapla(df, window, z_threshold)
             
-            # Son Veriler
-            son_fiyat = df['Close'].iloc[-1]
-            son_z = df['Z_Score'].iloc[-1]
-            son_sma = df['SMA'].iloc[-1]
-            fark_yuzde = ((son_fiyat - son_sma) / son_sma) * 100
+            last_p = df['Close'].iloc[-1]
+            last_z = df['Z_Score'].iloc[-1]
+            last_sma = df['SMA'].iloc[-1]
+            fark = ((last_p - last_sma) / last_sma) * 100
             
-            # --- 1. METRİKLER ---
+            # --- METRİKLER ---
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Anlık Fiyat", f"{son_fiyat:.2f}")
-            m2.metric("Adil Değer (Ortalama)", f"{son_sma:.2f}")
-            m3.metric("Ortalamadan Fark", f"%{fark_yuzde:.1f}")
+            m1.metric("Fiyat", f"{last_p:.2f}")
+            m2.metric("Ortalama", f"{last_sma:.2f}")
+            m3.metric("Fark", f"%{fark:.1f}", delta_color="off")
             
-            # Z-Score Renk Mantığı (Metrik için)
-            if son_z > z_threshold: 
-                m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}", "Pahalı 🔴")
-            elif son_z < -z_threshold: 
-                m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}", "Ucuz 🟢")
-            else:
-                m4.metric("Z-Score (Gerginlik)", f"{son_z:.2f}", "Nötr ⚪")
+            durum_renk = "normal"
+            if last_z > z_threshold: durum_renk = "inverse"
+            elif last_z < -z_threshold: durum_renk = "normal"
+            m4.metric("Stres Seviyesi (Z)", f"{last_z:.2f}", delta_color=durum_renk)
 
-            # --- 2. GRAFİK: FİYAT VE KANALLAR ---
-            st.markdown("#### 1️⃣ Fiyat Trendi ve Kanallar")
-            fig1, ax1 = plt.subplots(figsize=(12, 5))
-            ax1.plot(df.index, df['Close'], color='white', linewidth=2, label='Fiyat')
-            ax1.plot(df.index, df['SMA'], color='orange', linestyle='--', linewidth=1.5, label='Ortalama')
-            ax1.plot(df.index, df['Upper'], color='red', alpha=0.5, linewidth=1, label='Üst Bant')
-            ax1.plot(df.index, df['Lower'], color='green', alpha=0.5, linewidth=1, label='Alt Bant')
-            ax1.fill_between(df.index, df['Upper'], df['Lower'], color='gray', alpha=0.1)
-            ax1.set_title(f"{s_in.upper()} Fiyat Analizi")
-            ax1.legend(loc="upper left")
-            ax1.grid(True, alpha=0.2)
-            st.pyplot(fig1)
+            # --- GRAFİK 1: FİYAT VE BANTLAR (İNTERAKTİF) ---
+            st.subheader("📈 Fiyat Trendi")
+            fig1 = go.Figure()
+            
+            # Fiyat Çizgisi
+            fig1.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name='Fiyat', line=dict(color='white', width=2)))
+            # Ortalama
+            fig1.add_trace(go.Scatter(x=df.index, y=df['SMA'], mode='lines', name='Ortalama', line=dict(color='orange', width=1, dash='dash')))
+            # Üst Bant
+            fig1.add_trace(go.Scatter(x=df.index, y=df['Upper'], mode='lines', name='Üst Bant', line=dict(color='red', width=0), showlegend=False))
+            # Alt Bant (Fill TonextY ile arası boyanır)
+            fig1.add_trace(go.Scatter(x=df.index, y=df['Lower'], mode='lines', name='Alt Bant', line=dict(color='green', width=0), fill='tonexty', fillcolor='rgba(128, 128, 128, 0.1)', showlegend=False))
+            
+            fig1.update_layout(template="plotly_dark", height=400, margin=dict(l=0, r=0, t=10, b=0))
+            st.plotly_chart(fig1, use_container_width=True)
 
-            # --- 3. GRAFİK: Z-SCORE (GERGİNLİK) ---
-            st.markdown("#### 2️⃣ Gerginlik Ölçer (Z-Score)")
-            fig2, ax2 = plt.subplots(figsize=(12, 4))
-            ax2.plot(df.index, df['Z_Score'], color='cyan', linewidth=1.5, label='Gerginlik')
-            ax2.axhline(0, color='white', linestyle=':', alpha=0.5)
-            ax2.axhline(z_threshold, color='red', linestyle='--', linewidth=2, label='Pahalı')
-            ax2.axhline(-z_threshold, color='green', linestyle='--', linewidth=2, label='Ucuz')
+            # --- GRAFİK 2: Z-SCORE (RENKLİ SÜTUNLAR) ---
+            st.subheader("⚡ Gerginlik Ölçer")
             
-            # Alanları Boya
-            ax2.fill_between(df.index, z_threshold, df['Z_Score'], where=(df['Z_Score'] > z_threshold), color='red', alpha=0.6)
-            ax2.fill_between(df.index, -z_threshold, df['Z_Score'], where=(df['Z_Score'] < -z_threshold), color='green', alpha=0.6)
+            # Renkleri belirle (Z-Score değerine göre)
+            colors = np.where(df['Z_Score'] > z_threshold, 'red', 
+                     np.where(df['Z_Score'] < -z_threshold, '#00FF00', '#00CCFF'))
             
-            ax2.set_title("Alım/Satım Bölgeleri")
-            ax2.legend(loc="upper left")
-            ax2.grid(True, alpha=0.2)
-            st.pyplot(fig2)
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(x=df.index, y=df['Z_Score'], name='Z-Score', marker_color=colors))
+            
+            # Eşik Çizgileri
+            fig2.add_hline(y=z_threshold, line_dash="dot", line_color="red", annotation_text="Pahalı")
+            fig2.add_hline(y=-z_threshold, line_dash="dot", line_color="#00FF00", annotation_text="Ucuz")
+            
+            fig2.update_layout(template="plotly_dark", height=300, margin=dict(l=0, r=0, t=10, b=0))
+            st.plotly_chart(fig2, use_container_width=True)
             
         else:
             st.error("Veri bulunamadı.")
 
 # ==========================
-# SEKME 2: MEGA TARAYICI
+# SEKME 2: PİYASA RADARI
 # ==========================
 with tab2:
-    st.subheader("📡 Piyasa Tarayıcısı")
-    st.markdown("_Yukarıdaki ayarlara göre tarama yapar._")
-    
-    takip_listesi = [
-        'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'ASELS.IS', 'SISE.IS', 'SASA.IS', 'HEKTS.IS',
-        'BIMAS.IS', 'KCHOL.IS', 'SAHOL.IS', 'TUPRS.IS', 'FROTO.IS', 'TOASO.IS', 'PGSUS.IS', 
-        'ODAS.IS', 'ZOREN.IS', 'ASTOR.IS', 'KONTR.IS', 'SMRTG.IS', 'MIATK.IS', 'REEDR.IS',
-        'BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'XRP-USD',
-        'GC=F', 'SI=F', 'CL=F', 'EURUSD=X', 'TRY=X'
-    ]
+    st.caption("Aşağıdaki butona basarak tanımlı listeyi tarayabilirsiniz.")
+    takip_listesi = ['THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'ASELS.IS', 'SISE.IS', 'BIMAS.IS', 'KCHOL.IS', 'SAHOL.IS', 'TUPRS.IS', 'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'GC=F', 'EURUSD=X']
 
-    if st.button("🚀 TARAMAYI BAŞLAT"):
+    if st.button("🚀 Piyasayı Tara"):
         res = []
         bar = st.progress(0)
-        durum_text = st.empty()
-        
         for i, s in enumerate(takip_listesi):
             bar.progress((i+1)/len(takip_listesi))
-            durum_text.text(f"İnceleniyor: {s}")
             try:
                 d = veri_getir(s, "1y")
                 if d is not None:
                     d = teknik_hesapla(d, window, z_threshold)
                     z = d['Z_Score'].iloc[-1]
-                    res.append({
-                        "Sembol": s.replace(".IS",""), 
-                        "Fiyat": d['Close'].iloc[-1], 
-                        "Z-Score": z, 
-                        "Durum": "🟢 UCUZ" if z < -z_threshold else "🔴 PAHALI" if z > z_threshold else "NÖTR"
-                    })
+                    durum = "NÖTR"
+                    if z < -z_threshold: durum = "🟢 UCUZ"
+                    elif z > z_threshold: durum = "🔴 PAHALI"
+                    
+                    res.append({"Sembol": s.replace(".IS",""), "Fiyat": d['Close'].iloc[-1], "Z-Score": z, "Durum": durum})
             except: continue
-        
         st.session_state['tarama_sonuclari'] = pd.DataFrame(res)
-        durum_text.text("✅ Tarama Bitti!")
 
     if st.session_state['tarama_sonuclari'] is not None:
         df_g = st.session_state['tarama_sonuclari'].copy()
-        if st.checkbox("Sadece Fırsatları Göster", value=True):
-            df_g = df_g[df_g["Durum"] != "NÖTR"]
-        st.dataframe(df_g, use_container_width=True)
+        # Filtreleme
+        col_filt1, col_filt2 = st.columns(2)
+        with col_filt1:
+            if st.checkbox("Sadece Fırsatları Göster", value=True):
+                df_g = df_g[df_g["Durum"] != "NÖTR"]
+        
+        # Tabloyu Renklendirerek Göster
+        st.dataframe(
+            df_g.style.format({"Fiyat": "{:.2f}", "Z-Score": "{:.2f}"}),
+            use_container_width=True
+        )
 
 # ==========================
-# SEKME 3: MONTE CARLO
+# SEKME 3: SİMÜLASYON
 # ==========================
 with tab3:
-    st.subheader("🎲 Gelecek Simülasyonu")
+    c1, c2 = st.columns([1, 4])
+    with c1:
+        mc_sym = st.text_input("Sembol:", value="BTC-USD", key="mc_s")
+        mc_gun = st.number_input("Gün", 30, 365, 90)
+        btn = st.button("Başlat ▶️")
     
-    col_m1, col_m2 = st.columns([1, 3])
-    with col_m1:
-        mc_sym = st.text_input("Sembol:", value="BTC-USD", key="mc_sym")
-        mc_gun = st.slider("Gün İleri", 30, 180, 90)
-        mc_btn = st.button("Simüle Et")
-        
-    with col_m2:
-        if mc_btn and mc_sym:
-            with st.spinner("Kahin çalışıyor..."):
-                d_mc = veri_getir(mc_sym)
-                if d_mc is not None:
-                    # Mevcut Durum
-                    son = d_mc['Close'].iloc[-1]
-                    degisim = (son - d_mc['Close'].iloc[-2])
-                    yuzde = (degisim / d_mc['Close'].iloc[-2]) * 100
-                    
-                    st.metric("Şu Anki Fiyat", f"{son:.2f}", f"%{yuzde:.2f}")
-                    
-                    # Simülasyon ve Grafik
-                    sim_df = monte_carlo_simulasyon(d_mc, mc_gun)
-                    fig_mc, ax_mc = plt.subplots(figsize=(10, 5))
-                    ax_mc.plot(sim_df, color='cyan', alpha=0.1, linewidth=0.5)
-                    ax_mc.plot(sim_df.mean(axis=1), color='yellow', linewidth=2, label='Ortalama Rota')
-                    ax_mc.legend()
-                    ax_mc.grid(True, alpha=0.2)
-                    st.pyplot(fig_mc)
-                    
-                    # İstatistikler
-                    bitis = sim_df.iloc[-1]
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("En Kötü", f"{bitis.min():.2f}")
-                    c2.metric("Ortalama", f"{bitis.mean():.2f}")
-                    c3.metric("En İyi", f"{bitis.max():.2f}")
+    with c2:
+        if btn and mc_sym:
+            d_mc = veri_getir(mc_sym)
+            if d_mc is not None:
+                sim_df = monte_carlo_simulasyon(d_mc, mc_gun)
+                
+                # Plotly ile Simülasyon
+                fig_mc = go.Figure()
+                # İlk 50 senaryoyu çiz
+                for col in sim_df.columns[:50]:
+                    fig_mc.add_trace(go.Scatter(x=sim_df.index, y=sim_df[col], mode='lines', line=dict(color='cyan', width=0.5), opacity=0.1, showlegend=False))
+                
+                # Ortalama
+                fig_mc.add_trace(go.Scatter(x=sim_df.index, y=sim_df.mean(axis=1), mode='lines', name='Ortalama', line=dict(color='yellow', width=3)))
+                
+                fig_mc.update_layout(title=f"{mc_sym} - {mc_gun} Günlük Olasılıklar", template="plotly_dark", height=500)
+                st.plotly_chart(fig_mc, use_container_width=True)
+                
+                res = sim_df.iloc[-1]
+                k1, k2, k3 = st.columns(3)
+                k1.metric("Min Beklenti", f"{res.min():.2f}")
+                k2.metric("Ortalama", f"{res.mean():.2f}")
+                k3.metric("Max Beklenti", f"{res.max():.2f}")

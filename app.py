@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Quant Robot v14.2 - Final", layout="wide")
 plt.style.use('dark_background')
 
+
 # --- HAFIZA ---
 if 'tarama_sonuclari' not in st.session_state:
     st.session_state['tarama_sonuclari'] = None

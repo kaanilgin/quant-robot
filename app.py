@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Quant Robot v14.1 - RSI 80/30", layout="wide")
+st.set_page_config(page_title="Quant Robot v14.2 - Final", layout="wide")
 plt.style.use('dark_background')
 
 # --- HAFIZA ---
@@ -66,7 +66,7 @@ def satir_boya(row):
     return stiller
 
 # --- ANA BAŞLIK ---
-st.title("💎 Quant Terminal Pro (RSI Özel Ayar)")
+st.title("💎 Quant Terminal Pro")
 
 # --- SEKMELER ---
 tab1, tab2 = st.tabs(["📊 Detaylı Analiz", "📡 Mega Radar"])
@@ -97,6 +97,19 @@ with tab1:
             last_macd = df['MACD'].iloc[-1]
             last_sig = df['Signal_Line'].iloc[-1]
             
+            # --- UYARI KUTUSU (GERİ GELDİ! 📢) ---
+            if last_z > z_threshold:
+                st.error(f"🔴 KIRMIZI ALARM! Fiyat çok şişti ({last_z:.2f} Sigma). Düzeltme gelebilir, ALIM YAPMA!")
+            elif last_z < -z_threshold:
+                st.success(f"🟢 YEŞİL ALARM! Fiyat çok ucuzladı ({last_z:.2f} Sigma). Tepki gelebilir, ALIM FIRSATI!")
+            elif last_z > (z_threshold * 0.7):
+                st.warning("⚠️ SARI ALARM (ISINIYOR)! Fiyat kritik sınıra yaklaştı. Dikkatli ol.")
+            elif last_z < -(z_threshold * 0.7):
+                st.warning("⚠️ SARI ALARM (SOĞUYOR)! Fiyat dip seviyeye yaklaşıyor.")
+            else:
+                st.info("⚪ PİYASA NÖTR. Fiyat ortalamalarda geziniyor.")
+            
+            # --- METRİKLER ---
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Fiyat", f"{last_p:.2f}")
             
@@ -105,7 +118,7 @@ with tab1:
             elif last_z < -z_threshold: z_durum = "Ucuz"
             m2.metric("Z-Score", f"{last_z:.2f}", z_durum, delta_color="inverse" if "Pahalı" in z_durum else "normal")
             
-            # --- RSI AYARI (80/30) ---
+            # RSI Ayarı (80/30)
             rsi_text = "Normal"
             if last_rsi > 80: rsi_text = "Aşırı Alım (80↑)"
             elif last_rsi < 30: rsi_text = "Aşırı Satım (30↓)"
@@ -146,7 +159,7 @@ with tab1:
                 st.markdown("**RSI (Güç)**")
                 fig3, ax3 = plt.subplots(figsize=(6, 3))
                 ax3.plot(df.index, df['RSI'], color='magenta')
-                # --- RSI ÇİZGİLERİ GÜNCELLENDİ (80/30) ---
+                # Çizgiler 80 ve 30'da
                 ax3.axhline(80, color='red', linestyle='--', linewidth=1, label='Aşırı Alım (80)')
                 ax3.axhline(30, color='green', linestyle='--', linewidth=1, label='Aşırı Satım (30)')
                 ax3.set_ylim(0, 100)
@@ -208,17 +221,14 @@ with tab2:
                     
                     durum = "NÖTR"
                     
-                    # --- AKILLI KARAR MEKANİZMASI (80/30 GÜNCELLENDİ) ---
-                    # 1. UCUZ / PAHALI
+                    # AKILLI SİNYAL (RSI 80/30)
                     if z < -z_thresh_scan:
                         durum = "🟢 UCUZ"
-                        # RSI da destekliyor mu? (30 Altı)
                         if rsi < 30:
                             durum = "🔥 SÜPER FIRSAT"
                             
                     elif z > z_thresh_scan:
                         durum = "🔴 PAHALI"
-                        # RSI da destekliyor mu? (80 Üstü - Yeni Ayar)
                         if rsi > 80:
                             durum = "💣 SÜPER RİSK"
                     
